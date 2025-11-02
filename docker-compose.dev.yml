@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  sqordia-webapi:
+    build:
+      context: .
+      dockerfile: src/WebAPI/Dockerfile
+    container_name: sqordia-api-dev
+    ports:
+      - "5241:8080"  # Map host port 5241 to container port 8080
+    environment:
+      # Environment
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      
+      # Database Connection - Using local SQL Server container
+      # The service name 'sqordia-db' is used to connect to the SQL Server container
+      - ConnectionStrings__DefaultConnection=Server=sqordia-db,1433;Database=SqordiaDb;User Id=sa;Password=${SA_PASSWORD:-SqordiaDev123!};TrustServerCertificate=True;MultipleActiveResultSets=True;Connection Timeout=30;
+      
+      # JWT Settings
+      - JwtSettings__Secret=${JWT_SECRET:-S6075c41562a35879f7e40220d435f1f6972c7c7a9deea0c5}
+      - JwtSettings__Issuer=${JWT_ISSUER:-Sqordia}
+      - JwtSettings__Audience=${JWT_AUDIENCE:-SqordiaUsers}
+      - JwtSettings__ExpirationMinutes=${JWT_EXPIRATION_MINUTES:-60}
+      
+      # Google OAuth (optional - set via environment variables)
+      - GoogleOAuth__ClientId=${GOOGLE_OAUTH_CLIENT_ID:-}
+      - GoogleOAuth__ClientSecret=${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      
+      # OpenAI Configuration
+      - OpenAI__ApiKey=${OPENAI_API_KEY:-}
+      - OpenAI__Model=${OPENAI_MODEL:-gpt-4}
+      - AI__OpenAI__ApiKey=${OPENAI_API_KEY:-}
+      - AI__OpenAI__Model=${OPENAI_MODEL:-gpt-4}
+      
+      # Alternative AI Providers (optional)
+      - AI__Claude__ApiKey=${CLAUDE_API_KEY:-}
+      - AI__Gemini__ApiKey=${GEMINI_API_KEY:-}
+      - AI__AzureOpenAI__Endpoint=${AZURE_OPENAI_ENDPOINT:-}
+      - AI__AzureOpenAI__ApiKey=${AZURE_OPENAI_API_KEY:-}
+      
+      # SendGrid Configuration
+      - SendGrid__ApiKey=${SENDGRID_API_KEY:-}
+      - SendGrid__FromEmail=${SENDGRID_FROM_EMAIL:-sqordia.dev@gmail.com}
+      - SendGrid__FromName=${SENDGRID_FROM_NAME:-Sqordia}
+      
+      # Azure Storage (optional)
+      - AzureStorage__ConnectionString=${AZURE_STORAGE_CONNECTION_STRING:-}
+      - AzureStorage__ContainerName=${AZURE_STORAGE_CONTAINER_NAME:-documents}
+      
+      # Disable HTTPS redirect for Docker development
+      - DISABLE_HTTPS_REDIRECT=true
+    volumes:
+      # Mount appsettings for local development (includes SendGrid API key)
+      - ./src/WebAPI/appsettings.Development.json:/app/appsettings.Development.json:ro
+      # Mount logs directory if needed
+      - ./logs:/app/logs
+    networks:
+      - sqordia-network
+    depends_on:
+      sqordia-db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Local SQL Server container for development
+  sqordia-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqordia-db-dev
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=${SA_PASSWORD:-SqordiaDev123!}
+      - MSSQL_PID=Developer
+    ports:
+      - "1433:1433"  # Expose SQL Server port for external tools (SSMS, Azure Data Studio, etc.)
+    volumes:
+      - sqordia-db-data:/var/opt/mssql
+    networks:
+      - sqordia-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P SqordiaDev123! -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+
+networks:
+  sqordia-network:
+    driver: bridge
+
+volumes:
+  sqordia-db-data:
+    driver: local
