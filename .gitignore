@@ -74,6 +74,7 @@ Thumbs.db
 ## Secrets and sensitive files
 # Azure secrets file with actual credentials (DO NOT COMMIT)
 docs/AZURE_SECRETS_GENERATED.md
+docs/GITHUB_SECRETS_VALUES.md
 # Development configuration with actual secrets
 src/WebAPI/appsettings.Development.json
 src/WebAPI/Properties/launchSettings.json
