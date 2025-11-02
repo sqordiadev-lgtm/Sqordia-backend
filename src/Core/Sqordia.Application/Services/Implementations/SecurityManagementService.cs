@@ -32,8 +32,9 @@ public class SecurityManagementService : ISecurityManagementService
         {
             var currentSessionToken = GetCurrentSessionToken();
             
+            var now = DateTime.UtcNow;
             var sessions = await _context.ActiveSessions
-                .Where(s => s.UserId == userId && s.IsActive && !s.IsExpired())
+                .Where(s => s.UserId == userId && s.IsActive && s.ExpiresAt > now)
                 .OrderByDescending(s => s.LastActivityAt)
                 .ToListAsync(cancellationToken);
 

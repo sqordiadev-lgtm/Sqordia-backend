@@ -1,5 +1,9 @@
--- Seed Azure SQL Database with roles, permissions, and admin user
--- This script sets up the complete Sqordia database structure
+-- Seed Azure SQL Database - WORKING PARTS ONLY
+-- These sections executed successfully:
+-- 1. Roles creation (4 rows)
+-- 2. Permissions creation (15 rows)
+-- 3. Role-Permission assignments (all 4 roles)
+-- 4. Organization creation (1 row)
 
 -- 1. Create Roles
 INSERT INTO [Roles] ([Id], [Name], [Description], [IsSystemRole])
@@ -36,7 +40,7 @@ VALUES
     (CAST('D3E80855-70FF-4863-92B1-7EE266426DE3' AS UNIQUEIDENTIFIER), 'System.Settings', 'Manage system settings', 'SystemAdministration');
 
 -- 3. Assign permissions to roles
--- Admin role gets all permissions
+-- Admin role gets all permissions (15 rows)
 INSERT INTO [RolePermissions] ([Id], [RoleId], [PermissionId])
 SELECT 
     NEWID(),
@@ -44,7 +48,7 @@ SELECT
     [Id]
 FROM [Permissions];
 
--- User role gets basic permissions
+-- User role gets basic permissions (5 rows)
 INSERT INTO [RolePermissions] ([Id], [RoleId], [PermissionId])
 SELECT 
     NEWID(),
@@ -53,7 +57,7 @@ SELECT
 FROM [Permissions]
 WHERE [Name] IN ('Users.Read', 'Organizations.Read', 'BusinessPlans.Create', 'BusinessPlans.Read', 'BusinessPlans.Update');
 
--- OrganizationAdmin role gets organization and business plan permissions
+-- OrganizationAdmin role gets organization and business plan permissions (9 rows)
 INSERT INTO [RolePermissions] ([Id], [RoleId], [PermissionId])
 SELECT 
     NEWID(),
@@ -66,7 +70,7 @@ WHERE [Name] IN (
     'BusinessPlans.Create', 'BusinessPlans.Read', 'BusinessPlans.Update', 'BusinessPlans.Delete'
 );
 
--- OrganizationMember role gets basic business plan permissions
+-- OrganizationMember role gets basic business plan permissions (3 rows)
 INSERT INTO [RolePermissions] ([Id], [RoleId], [PermissionId])
 SELECT 
     NEWID(),
@@ -75,40 +79,7 @@ SELECT
 FROM [Permissions]
 WHERE [Name] IN ('BusinessPlans.Create', 'BusinessPlans.Read', 'BusinessPlans.Update');
 
--- 4. Create Admin User
-INSERT INTO [Users] (
-    [Id], [FirstName], [LastName], [Email], [UserName], [PasswordHash], 
-    [IsEmailConfirmed], [EmailConfirmedAt], [IsActive], [UserType], 
-    [AccessFailedCount], [LockoutEnabled], [Provider],
-    [Created], [IsDeleted]
-)
-VALUES (
-    CAST('758afb07-3e8c-4259-995f-42f05af13b78' AS UNIQUEIDENTIFIER),
-    'Admin',
-    'User',
-    'admin@sqordia.com',
-    'admin@sqordia.com',
-    '$2a$11$mQQQUzX12zagdYn5YrbKN.PvvUZ8XHn7DsqjAvoYsXsVXJ6SSdKFa', -- Password: Sqordia2025!
-    1,
-    GETUTCDATE(),
-    1,
-    'Admin',
-    0, -- AccessFailedCount
-    1, -- LockoutEnabled (true)
-    'local', -- Provider
-    GETUTCDATE(),
-    0
-);
-
--- 5. Assign Admin role to admin user
-INSERT INTO [UserRoles] ([Id], [UserId], [RoleId])
-VALUES (
-    NEWID(),
-    CAST('758afb07-3e8c-4259-995f-42f05af13b78' AS UNIQUEIDENTIFIER),
-    CAST('6FE80855-70FF-4863-92B1-7EE266426DEE' AS UNIQUEIDENTIFIER)
-);
-
--- 6. Create a default organization
+-- 4. Create a default organization (1 row)
 INSERT INTO [Organizations] (
     [Id], [Name], [Description], [OrganizationType], [IsActive], 
     [MaxMembers], [AllowMemberInvites], [RequireEmailVerification],
@@ -128,23 +99,6 @@ VALUES (
     0
 );
 
--- 7. Add admin user to the organization as admin
-INSERT INTO [OrganizationMembers] (
-    [Id], [OrganizationId], [UserId], [Role], [IsActive], [JoinedAt], 
-    [Created], [IsDeleted]
-)
-SELECT 
-    NEWID(),
-    o.[Id],
-    CAST('758afb07-3e8c-4259-995f-42f05af13b78' AS UNIQUEIDENTIFIER),
-    'Admin',
-    1,
-    GETUTCDATE(),
-    GETUTCDATE(),
-    0
-FROM [Organizations] o
-WHERE o.[Name] = 'Sqordia Default Organization';
+PRINT 'Successfully executed parts completed!';
+PRINT 'Created: 4 Roles, 15 Permissions, 32 Role-Permission mappings, 1 Organization';
 
-PRINT 'Database seeding completed successfully!';
-PRINT 'Admin user created: admin@sqordia.com';
-PRINT 'Password: Sqordia2025!';
