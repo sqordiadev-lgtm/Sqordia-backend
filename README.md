@@ -14,8 +14,8 @@ A comprehensive business plan management system built with ASP.NET Core 8, follo
 
 1. **Clone the repository**
 ```bash
-git clone <repository-url>
-cd Sqordia
+git clone https://github.com/sqordiadev-lgtm/Sqordia-backend.git
+cd Sqordia-backend
 ```
 
 2. **Start the application with Docker Compose**
