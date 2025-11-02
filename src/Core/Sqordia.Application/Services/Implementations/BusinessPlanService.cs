@@ -110,7 +110,7 @@ public class BusinessPlanService : IBusinessPlanService
                 FinalizedAt = businessPlan.FinalizedAt,
                 Created = businessPlan.Created,
                 LastModified = businessPlan.LastModified,
-                CreatedBy = businessPlan.CreatedBy
+                CreatedBy = businessPlan.CreatedBy ?? string.Empty
             };
 
             return Result.Success(response);
@@ -171,7 +171,7 @@ public class BusinessPlanService : IBusinessPlanService
                 FinalizedAt = businessPlan.FinalizedAt,
                 Created = businessPlan.Created,
                 LastModified = businessPlan.LastModified,
-                CreatedBy = businessPlan.CreatedBy
+                CreatedBy = businessPlan.CreatedBy ?? string.Empty
             };
 
             return Result.Success(response);
@@ -229,7 +229,7 @@ public class BusinessPlanService : IBusinessPlanService
                 FinalizedAt = bp.FinalizedAt,
                 Created = bp.Created,
                 LastModified = bp.LastModified,
-                CreatedBy = bp.CreatedBy
+                CreatedBy = bp.CreatedBy ?? string.Empty
             });
 
             return Result.Success(responses);
@@ -314,7 +314,7 @@ public class BusinessPlanService : IBusinessPlanService
                 FinalizedAt = businessPlan.FinalizedAt,
                 Created = businessPlan.Created,
                 LastModified = businessPlan.LastModified,
-                CreatedBy = businessPlan.CreatedBy
+                CreatedBy = businessPlan.CreatedBy ?? string.Empty
             };
 
             return Result.Success(response);
@@ -433,7 +433,7 @@ public class BusinessPlanService : IBusinessPlanService
                 FinalizedAt = businessPlan.FinalizedAt,
                 Created = businessPlan.Created,
                 LastModified = businessPlan.LastModified,
-                CreatedBy = businessPlan.CreatedBy
+                CreatedBy = businessPlan.CreatedBy ?? string.Empty
             };
 
             return Result.Success(response);
@@ -504,7 +504,7 @@ public class BusinessPlanService : IBusinessPlanService
                 FinalizedAt = businessPlan.FinalizedAt,
                 Created = businessPlan.Created,
                 LastModified = businessPlan.LastModified,
-                CreatedBy = businessPlan.CreatedBy
+                CreatedBy = businessPlan.CreatedBy ?? string.Empty
             };
 
             return Result.Success(response);

@@ -66,7 +66,8 @@ public class OBNLTypeTests
         // Act & Assert
         (OBNLType.CharitableOrganization < OBNLType.ReligiousOrganization).Should().BeTrue();
         (OBNLType.ReligiousOrganization > OBNLType.CharitableOrganization).Should().BeTrue();
-        (OBNLType.CharitableOrganization == OBNLType.CharitableOrganization).Should().BeTrue();
+        var sameValue = OBNLType.CharitableOrganization;
+        (sameValue == OBNLType.CharitableOrganization).Should().BeTrue();
         (OBNLType.CharitableOrganization != OBNLType.ReligiousOrganization).Should().BeTrue();
     }
 

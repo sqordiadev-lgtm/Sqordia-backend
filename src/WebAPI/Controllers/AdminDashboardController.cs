@@ -271,10 +271,10 @@ public class AdminDashboardController : BaseApiController
 
         var result = await _adminDashboardService.GenerateSystemReportAsync(reportType, parameters, cancellationToken);
 
-        if (result.IsSuccess)
+        if (result.IsSuccess && result.Value != null)
         {
             var report = result.Value;
-            return File(report.ReportData, report.ContentType, report.FileName);
+            return File(report.ReportData ?? Array.Empty<byte>(), report.ContentType ?? "application/octet-stream", report.FileName ?? "report");
         }
 
         return HandleResult(result);

@@ -100,9 +100,9 @@ public class QuestionnaireService : IQuestionnaireService
                     var hasResponse = responses.TryGetValue(q.Id, out var response);
                     
                     // Select appropriate language for question text
-                    var questionText = isEnglish && !string.IsNullOrWhiteSpace(q.QuestionTextEN) 
+                    var questionText = (isEnglish && !string.IsNullOrWhiteSpace(q.QuestionTextEN) 
                         ? q.QuestionTextEN 
-                        : q.QuestionText;
+                        : q.QuestionText) ?? string.Empty;
                     
                     // Select appropriate language for help text
                     var helpText = isEnglish && !string.IsNullOrWhiteSpace(q.HelpTextEN) 
@@ -129,7 +129,7 @@ public class QuestionnaireService : IQuestionnaireService
 
                     // Parse selected options if present
                     List<string>? selectedOptions = null;
-                    if (hasResponse && !string.IsNullOrWhiteSpace(response.SelectedOptions))
+                    if (hasResponse && response != null && !string.IsNullOrWhiteSpace(response.SelectedOptions))
                     {
                         try
                         {
@@ -151,10 +151,10 @@ public class QuestionnaireService : IQuestionnaireService
                         IsRequired = q.IsRequired,
                         Section = q.Section,
                         Options = options,
-                        UserResponse = hasResponse ? response.ResponseText : null,
-                        NumericValue = hasResponse ? response.NumericValue : null,
-                        DateValue = hasResponse ? response.DateValue : null,
-                        BooleanValue = hasResponse ? response.BooleanValue : null,
+                        UserResponse = hasResponse && response != null ? response.ResponseText : null,
+                        NumericValue = hasResponse && response != null ? response.NumericValue : null,
+                        DateValue = hasResponse && response != null ? response.DateValue : null,
+                        BooleanValue = hasResponse && response != null ? response.BooleanValue : null,
                         SelectedOptions = selectedOptions
                     };
                 })
