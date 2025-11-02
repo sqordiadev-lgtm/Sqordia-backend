@@ -184,7 +184,7 @@ docker-compose -f docker-compose.dev.yml down
 docker-compose -f docker-compose.dev.yml down -v
 ```
 
-See [DOCKER_LOCAL_DEVELOPMENT.md](docs/DOCKER_LOCAL_DEVELOPMENT.md) for detailed Docker setup instructions.
+See [DEVELOPER_SETUP.md](docs/DEVELOPER_SETUP.md) for detailed Docker setup instructions.
 
 ## Testing
 
@@ -236,8 +236,7 @@ Services are organized by layer:
 ## Documentation
 
 Essential documentation:
-- **[Docker Local Development](docs/DOCKER_LOCAL_DEVELOPMENT.md)** - Docker setup guide
-- **[Developer Setup](docs/DEVELOPER_SETUP.md)** - Getting started guide
+- **[Developer Setup](docs/DEVELOPER_SETUP.md)** - Getting started guide (includes Docker setup)
 - **[Security](docs/SECURITY.md)** - Security policies
 - **[API Testing](postman/README.md)** - Postman collection guide
 

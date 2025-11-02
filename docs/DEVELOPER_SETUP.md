@@ -363,10 +363,10 @@ Sqordia/
 
 ## Additional Resources
 
-- **[Docker Local Development](DOCKER_LOCAL_DEVELOPMENT.md)** - Detailed Docker setup
-- **[Security Guide](SECURITY.md)** - Security best practices
-- **[API Documentation](API_DOCUMENTATION.md)** - API endpoint reference
+- **[Secrets Setup](SECRETS_SETUP.md)** - Configuration and secrets management
 - **[Postman Collection](../postman/README.md)** - API testing guide
+- **[Swagger Documentation](../docs/swagger.json)** - OpenAPI specification
+- **[GitHub Actions Secrets](GITHUB_ACTIONS_SECRETS.md)** - CI/CD secrets configuration
 
 ## Next Steps
 
