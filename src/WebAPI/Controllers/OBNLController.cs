@@ -6,7 +6,8 @@ using Sqordia.Application.OBNL.Services;
 namespace WebAPI.Controllers;
 
 [ApiController]
-[Route("api/obnl")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/obnl")]
 public class OBNLController : ControllerBase
 {
     private readonly IOBNLPlanService _obnlPlanService;

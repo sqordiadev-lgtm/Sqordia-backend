@@ -27,10 +27,9 @@ services:
       - GoogleOAuth__ClientId=${GOOGLE_OAUTH_CLIENT_ID:-}
       - GoogleOAuth__ClientSecret=${GOOGLE_OAUTH_CLIENT_SECRET:-}
       
-      # OpenAI Configuration
-      - OpenAI__ApiKey=${OPENAI_API_KEY:-}
+      # OpenAI Configuration (using appsettings.Development.json via mounted volume)
+      # Only set if environment variable is provided, otherwise use appsettings file
       - OpenAI__Model=${OPENAI_MODEL:-gpt-4}
-      - AI__OpenAI__ApiKey=${OPENAI_API_KEY:-}
       - AI__OpenAI__Model=${OPENAI_MODEL:-gpt-4}
       
       # Alternative AI Providers (optional)
@@ -39,8 +38,8 @@ services:
       - AI__AzureOpenAI__Endpoint=${AZURE_OPENAI_ENDPOINT:-}
       - AI__AzureOpenAI__ApiKey=${AZURE_OPENAI_API_KEY:-}
       
-      # SendGrid Configuration
-      - SendGrid__ApiKey=${SENDGRID_API_KEY:-}
+      # SendGrid Configuration (using appsettings.Development.json via mounted volume)
+      # Only set if environment variable is provided, otherwise use appsettings file
       - SendGrid__FromEmail=${SENDGRID_FROM_EMAIL:-sqordia.dev@gmail.com}
       - SendGrid__FromName=${SENDGRID_FROM_NAME:-Sqordia}
       

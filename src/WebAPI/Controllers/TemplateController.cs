@@ -8,7 +8,8 @@ using Sqordia.Domain.Enums;
 namespace WebAPI.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/template")]
 public class TemplateController : ControllerBase
 {
     private readonly ITemplateService _templateService;

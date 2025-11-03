@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sqordia.Persistence.Contexts;
@@ -6,16 +8,23 @@ using System.Data.SqlClient;
 namespace WebAPI.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [ApiVersion("1.0")]
+    [Route("api/v{version:apiVersion}/seed")]
+    [Authorize(Roles = "Admin")]
     public class SeedController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<SeedController> _logger;
+        private readonly IWebHostEnvironment _env;
 
-        public SeedController(ApplicationDbContext context, ILogger<SeedController> logger)
+        public SeedController(
+            ApplicationDbContext context, 
+            ILogger<SeedController> logger,
+            IWebHostEnvironment env)
         {
             _context = context;
             _logger = logger;
+            _env = env;
         }
 
         [HttpPost("database")]
@@ -23,14 +32,74 @@ namespace WebAPI.Controllers
         {
             try
             {
+                _logger.LogInformation("Checking if database is already seeded...");
+                
+                // Check if seed data already exists
+                var rolesCount = await _context.Roles.CountAsync();
+                var permissionsCount = await _context.Permissions.CountAsync();
+                var usersCount = await _context.Users.CountAsync();
+                var isSeeded = rolesCount > 0 && permissionsCount > 0 && usersCount > 0;
+
+                if (isSeeded)
+                {
+                    _logger.LogInformation("Database is already seeded. Skipping seed operation.");
+                    return Ok(new
+                    {
+                        success = true,
+                        message = "Database is already seeded. No action taken.",
+                        alreadySeeded = true,
+                        currentData = new
+                        {
+                            rolesCount,
+                            permissionsCount,
+                            usersCount
+                        }
+                    });
+                }
+
                 _logger.LogInformation("Starting database seeding...");
                 
                 // Log the actual connection string being used
                 var connectionString = _context.Database.GetConnectionString();
                 _logger.LogInformation($"Using connection string: {connectionString?.Substring(0, Math.Min(50, connectionString?.Length ?? 0))}...");
 
+                // Try multiple possible paths for the SQL script
+                var possiblePaths = new[]
+                {
+                    Path.Combine(_env.ContentRootPath, "..", "..", "scripts", "SeedAzureDatabase.sql"),
+                    Path.Combine(_env.ContentRootPath, "scripts", "SeedAzureDatabase.sql"),
+                    Path.Combine(Directory.GetCurrentDirectory(), "scripts", "SeedAzureDatabase.sql"),
+                    Path.Combine(Directory.GetCurrentDirectory(), "..", "scripts", "SeedAzureDatabase.sql"),
+                    "scripts/SeedAzureDatabase.sql",
+                    "../scripts/SeedAzureDatabase.sql"
+                };
+
+                string? sqlScript = null;
+                string? scriptPath = null;
+
+                foreach (var path in possiblePaths)
+                {
+                    var fullPath = Path.GetFullPath(path);
+                    _logger.LogInformation($"Trying path: {fullPath}");
+                    if (System.IO.File.Exists(fullPath))
+                    {
+                        scriptPath = fullPath;
+                        sqlScript = await System.IO.File.ReadAllTextAsync(fullPath);
+                        _logger.LogInformation($"Found script at: {fullPath}");
+                        break;
+                    }
+                }
+
+                if (sqlScript == null)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "SQL seed script not found. Tried paths: " + string.Join(", ", possiblePaths.Select(p => Path.GetFullPath(p)))
+                    });
+                }
+
                 // Read and split the SQL script by GO statements
-                var sqlScript = await System.IO.File.ReadAllTextAsync("Scripts/SeedAzureDatabase.sql");
                 var statements = sqlScript.Split(new[] { "GO", "go" }, StringSplitOptions.RemoveEmptyEntries);
 
                 // Execute each statement

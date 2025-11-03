@@ -8,7 +8,8 @@ using Sqordia.Domain.Enums;
 namespace WebAPI.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/financial")]
 public class FinancialController : ControllerBase
 {
     private readonly IFinancialService _financialService;
