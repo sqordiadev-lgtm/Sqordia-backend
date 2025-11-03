@@ -71,7 +71,7 @@ public class OBNLControllerTests : IClassFixture<WebApplicationFactory<Program>>
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/api/obnl/plans", request);
+        var response = await _client.PostAsJsonAsync("/api/v1/obnl/plans", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -108,7 +108,7 @@ public class OBNLControllerTests : IClassFixture<WebApplicationFactory<Program>>
         await _context.SaveChangesAsync();
 
         // Act
-        var response = await _client.GetAsync($"/api/obnl/plans/{plan.Id}");
+        var response = await _client.GetAsync($"/api/v1/obnl/plans/{plan.Id}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -123,7 +123,7 @@ public class OBNLControllerTests : IClassFixture<WebApplicationFactory<Program>>
         var nonExistentId = Guid.NewGuid();
 
         // Act
-        var response = await _client.GetAsync($"/api/obnl/plans/{nonExistentId}");
+        var response = await _client.GetAsync($"/api/v1/obnl/plans/{nonExistentId}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
@@ -181,7 +181,7 @@ public class OBNLControllerTests : IClassFixture<WebApplicationFactory<Program>>
         await _context.SaveChangesAsync();
 
         // Act
-        var response = await _client.GetAsync($"/api/obnl/organizations/{organizationId}/plans");
+        var response = await _client.GetAsync($"/api/v1/obnl/organizations/{organizationId}/plans");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -228,7 +228,7 @@ public class OBNLControllerTests : IClassFixture<WebApplicationFactory<Program>>
         };
 
         // Act
-        var response = await _client.PutAsJsonAsync($"/api/obnl/plans/{plan.Id}", updateRequest);
+        var response = await _client.PutAsJsonAsync($"/api/v1/obnl/plans/{plan.Id}", updateRequest);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -263,7 +263,7 @@ public class OBNLControllerTests : IClassFixture<WebApplicationFactory<Program>>
         await _context.SaveChangesAsync();
 
         // Act
-        var response = await _client.DeleteAsync($"/api/obnl/plans/{plan.Id}");
+        var response = await _client.DeleteAsync($"/api/v1/obnl/plans/{plan.Id}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
@@ -298,7 +298,7 @@ public class OBNLControllerTests : IClassFixture<WebApplicationFactory<Program>>
         await _context.SaveChangesAsync();
 
         // Act
-        var response = await _client.PostAsync($"/api/obnl/plans/{plan.Id}/compliance/analyze", null);
+        var response = await _client.PostAsync($"/api/v1/obnl/plans/{plan.Id}/compliance/analyze", null);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
