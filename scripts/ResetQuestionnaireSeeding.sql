@@ -28,7 +28,7 @@ SET @DeletedTemplatesCount = @@ROWCOUNT;
 PRINT 'Deleted ' + CAST(@DeletedTemplatesCount AS NVARCHAR(10)) + ' questionnaire template(s).';
 PRINT '';
 
--- Step 3: Re-seed the BusinessPlan questionnaire template with 20 questions
+-- Step 4: Re-seed the BusinessPlan questionnaire template with 20 questions
 DECLARE @TemplateId UNIQUEIDENTIFIER = NEWID();
 DECLARE @Now DATETIME2 = GETUTCDATE();
 
