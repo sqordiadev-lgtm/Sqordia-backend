@@ -22,7 +22,7 @@ public abstract class BaseApiController : ControllerBase
             return NotFound();
         }
 
-        return BadRequest(result.Error);
+        return MapErrorToStatusCode(result.Error);
     }
 
     protected IActionResult HandleResult(Result result)
@@ -32,7 +32,45 @@ public abstract class BaseApiController : ControllerBase
             return Ok();
         }
 
-        return BadRequest(result.Error);
+        return MapErrorToStatusCode(result.Error);
+    }
+
+    /// <summary>
+    /// Maps an Error to the appropriate HTTP status code based on the error code
+    /// </summary>
+    private IActionResult MapErrorToStatusCode(Error? error)
+    {
+        if (error == null)
+        {
+            return BadRequest(new { message = "An error occurred" });
+        }
+
+        var errorCode = error.Code;
+        var errorMessage = error.Message;
+
+        // Map error codes to HTTP status codes
+        if (errorCode.Contains("Unauthorized", StringComparison.OrdinalIgnoreCase))
+        {
+            return Unauthorized(error);
+        }
+
+        if (errorCode.Contains("Forbidden", StringComparison.OrdinalIgnoreCase))
+        {
+            return StatusCode(403, error);
+        }
+
+        if (errorCode.Contains("NotFound", StringComparison.OrdinalIgnoreCase))
+        {
+            return NotFound(error);
+        }
+
+        if (errorCode.Contains("Conflict", StringComparison.OrdinalIgnoreCase))
+        {
+            return Conflict(error);
+        }
+
+        // Default to BadRequest for validation errors and other failures
+        return BadRequest(error);
     }
 
     /// <summary>
