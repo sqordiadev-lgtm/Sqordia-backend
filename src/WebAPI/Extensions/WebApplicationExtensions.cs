@@ -82,9 +82,24 @@ public static class WebApplicationExtensions
             logger.LogWarning(pgEx, "PostgreSQL database connection failed. Error: {Message}", pgEx.Message);
             logger.LogInformation("For PostgreSQL, the database should be created manually or via migrations. Railway creates databases automatically.");
         }
+        catch (PostgresException pgEx)
+        {
+            // PostgreSQL-specific errors
+            logger.LogError(pgEx, "PostgreSQL error occurred while applying database migrations. Error Code: {SqlState}, Message: {Message}", pgEx.SqlState, pgEx.Message);
+            logger.LogInformation("Application will continue without database connectivity. Please check your DATABASE_URL environment variable.");
+        }
         catch (Exception ex)
         {
-            logger.LogError(ex, "An error occurred while applying database migrations. Application will continue without database connectivity.");
+            // Check if it's a SQL Server exception (shouldn't happen with PostgreSQL)
+            if (ex.Message.Contains("SqlException") || ex.Message.Contains("Microsoft.Data.SqlClient"))
+            {
+                logger.LogError(ex, "SQL Server exception detected, but PostgreSQL is expected. Please verify DATABASE_URL is set correctly in Railway.");
+                logger.LogInformation("DATABASE_URL should be set to: ${{ Postgres.DATABASE_URL }} (replace Postgres with your database service name)");
+            }
+            else
+            {
+                logger.LogError(ex, "An error occurred while applying database migrations. Application will continue without database connectivity.");
+            }
         }
     }
 
