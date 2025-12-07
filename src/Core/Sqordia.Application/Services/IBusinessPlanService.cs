@@ -45,5 +45,10 @@ public interface IBusinessPlanService
     /// Unarchive a business plan
     /// </summary>
     Task<Result<BusinessPlanResponse>> UnarchiveBusinessPlanAsync(Guid id, CancellationToken cancellationToken = default);
+    
+    /// <summary>
+    /// Duplicate a business plan
+    /// </summary>
+    Task<Result<BusinessPlanResponse>> DuplicateBusinessPlanAsync(Guid id, string? newTitle = null, CancellationToken cancellationToken = default);
 }
 

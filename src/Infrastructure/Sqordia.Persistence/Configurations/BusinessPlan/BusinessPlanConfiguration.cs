@@ -116,6 +116,16 @@ public class BusinessPlanConfiguration : IEntityTypeConfiguration<Domain.Entitie
             .WithOne(fp => fp.BusinessPlan)
             .HasForeignKey(fp => fp.BusinessPlanId)
             .OnDelete(DeleteBehavior.Cascade);
+            
+        builder.HasMany(bp => bp.Shares)
+            .WithOne(bs => bs.BusinessPlan)
+            .HasForeignKey(bs => bs.BusinessPlanId)
+            .OnDelete(DeleteBehavior.Cascade);
+            
+        builder.HasMany(bp => bp.Versions)
+            .WithOne(bv => bv.BusinessPlan)
+            .HasForeignKey(bv => bv.BusinessPlanId)
+            .OnDelete(DeleteBehavior.Cascade);
         
         // Indexes
         builder.HasIndex(bp => bp.OrganizationId);

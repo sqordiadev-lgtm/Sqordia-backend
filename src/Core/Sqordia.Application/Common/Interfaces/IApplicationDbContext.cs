@@ -41,6 +41,8 @@ public interface IApplicationDbContext
     DbSet<QuestionTemplate> QuestionTemplates { get; }
     DbSet<QuestionnaireResponse> QuestionnaireResponses { get; }
     DbSet<Domain.Entities.BusinessPlan.FinancialProjection> BusinessPlanFinancialProjections { get; }
+    DbSet<BusinessPlanShare> BusinessPlanShares { get; }
+    DbSet<BusinessPlanVersion> BusinessPlanVersions { get; }
     
     // OBNL Management
     DbSet<OBNLBusinessPlan> OBNLBusinessPlans { get; }

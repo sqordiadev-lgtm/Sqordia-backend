@@ -43,6 +43,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<QuestionTemplate> QuestionTemplates { get; set; }
     public DbSet<QuestionnaireResponse> QuestionnaireResponses { get; set; }
     public DbSet<Domain.Entities.BusinessPlan.FinancialProjection> BusinessPlanFinancialProjections { get; set; }
+    public DbSet<BusinessPlanShare> BusinessPlanShares { get; set; }
+    public DbSet<BusinessPlanVersion> BusinessPlanVersions { get; set; }
     
     // OBNL Management
     public DbSet<OBNLBusinessPlan> OBNLBusinessPlans { get; set; }

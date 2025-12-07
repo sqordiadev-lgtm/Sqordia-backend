@@ -31,6 +31,8 @@ public static class ConfigureServices
             services.AddScoped<IQuestionnaireService, QuestionnaireService>();
             services.AddScoped<IBusinessPlanGenerationService, BusinessPlanGenerationService>();
             services.AddScoped<ISectionService, SectionService>();
+            services.AddScoped<IBusinessPlanShareService, BusinessPlanShareService>();
+            services.AddScoped<IBusinessPlanVersionService, BusinessPlanVersionService>();
 
             // OBNL services
             services.AddScoped<IOBNLPlanService, OBNLPlanService>();

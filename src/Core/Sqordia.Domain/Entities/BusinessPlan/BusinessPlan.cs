@@ -61,6 +61,8 @@ public class BusinessPlan : BaseAuditableEntity
     public Organization Organization { get; private set; } = null!;
     public ICollection<QuestionnaireResponse> QuestionnaireResponses { get; private set; } = new List<QuestionnaireResponse>();
     public ICollection<FinancialProjection> FinancialProjectionDetails { get; private set; } = new List<FinancialProjection>();
+    public ICollection<BusinessPlanShare> Shares { get; private set; } = new List<BusinessPlanShare>();
+    public ICollection<BusinessPlanVersion> Versions { get; private set; } = new List<BusinessPlanVersion>();
     
     private BusinessPlan() { } // EF Core constructor
     

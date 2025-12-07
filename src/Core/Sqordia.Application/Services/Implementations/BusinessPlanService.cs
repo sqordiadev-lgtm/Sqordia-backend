@@ -575,5 +575,176 @@ public class BusinessPlanService : IBusinessPlanService
             return Result.Failure<IEnumerable<BusinessPlanResponse>>(Error.InternalServerError("General.InternalServerError", _localizationService.GetString("General.InternalServerError")));
         }
     }
+
+    public async Task<Result<BusinessPlanResponse>> DuplicateBusinessPlanAsync(Guid id, string? newTitle = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var currentUserId = GetCurrentUserId();
+            if (!currentUserId.HasValue)
+            {
+                return Result.Failure<BusinessPlanResponse>(Error.Unauthorized("General.Unauthorized", _localizationService.GetString("General.Unauthorized")));
+            }
+
+            // Get the original business plan with all related data
+            var originalPlan = await _context.BusinessPlans
+                .Include(bp => bp.Organization)
+                .Include(bp => bp.QuestionnaireResponses)
+                    .ThenInclude(qr => qr.QuestionTemplate)
+                .Include(bp => bp.FinancialProjectionDetails)
+                .FirstOrDefaultAsync(bp => bp.Id == id, cancellationToken);
+
+            if (originalPlan == null)
+            {
+                return Result.Failure<BusinessPlanResponse>(Error.NotFound("BusinessPlan.Error.NotFound", _localizationService.GetString("BusinessPlan.Error.NotFound")));
+            }
+
+            // Verify user has access to the original plan
+            var member = await _context.OrganizationMembers
+                .FirstOrDefaultAsync(om => om.OrganizationId == originalPlan.OrganizationId && 
+                                          om.UserId == currentUserId.Value && 
+                                          om.IsActive, cancellationToken);
+
+            if (member == null)
+            {
+                return Result.Failure<BusinessPlanResponse>(Error.Forbidden("BusinessPlan.Error.Forbidden", _localizationService.GetString("BusinessPlan.Error.Forbidden")));
+            }
+
+            // Create new business plan with copied data
+            var newTitleValue = newTitle ?? $"Copie de {originalPlan.Title}";
+            var duplicatedPlan = new Domain.Entities.BusinessPlan.BusinessPlan(
+                newTitleValue,
+                originalPlan.PlanType,
+                originalPlan.OrganizationId,
+                originalPlan.Description);
+
+            duplicatedPlan.CreatedBy = currentUserId.Value.ToString();
+            
+            // Copy all content sections
+            duplicatedPlan.UpdateExecutiveSummary(originalPlan.ExecutiveSummary);
+            duplicatedPlan.UpdateProblemStatement(originalPlan.ProblemStatement);
+            duplicatedPlan.UpdateSolution(originalPlan.Solution);
+            duplicatedPlan.UpdateMarketAnalysis(originalPlan.MarketAnalysis);
+            duplicatedPlan.UpdateCompetitiveAnalysis(originalPlan.CompetitiveAnalysis);
+            duplicatedPlan.UpdateSwotAnalysis(originalPlan.SwotAnalysis);
+            duplicatedPlan.UpdateBusinessModel(originalPlan.BusinessModel);
+            duplicatedPlan.UpdateMarketingStrategy(originalPlan.MarketingStrategy);
+            duplicatedPlan.UpdateBrandingStrategy(originalPlan.BrandingStrategy);
+            duplicatedPlan.UpdateOperationsPlan(originalPlan.OperationsPlan);
+            duplicatedPlan.UpdateManagementTeam(originalPlan.ManagementTeam);
+            duplicatedPlan.UpdateFinancialProjections(originalPlan.FinancialProjections);
+            duplicatedPlan.UpdateFundingRequirements(originalPlan.FundingRequirements);
+            duplicatedPlan.UpdateRiskAnalysis(originalPlan.RiskAnalysis);
+            duplicatedPlan.UpdateExitStrategy(originalPlan.ExitStrategy);
+            duplicatedPlan.UpdateAppendixData(originalPlan.AppendixData);
+            
+            // Copy OBNL-specific sections
+            duplicatedPlan.UpdateMissionStatement(originalPlan.MissionStatement);
+            duplicatedPlan.UpdateSocialImpact(originalPlan.SocialImpact);
+            duplicatedPlan.UpdateBeneficiaryProfile(originalPlan.BeneficiaryProfile);
+            duplicatedPlan.UpdateGrantStrategy(originalPlan.GrantStrategy);
+            duplicatedPlan.UpdateSustainabilityPlan(originalPlan.SustainabilityPlan);
+            
+            // Copy questionnaire tracking
+            duplicatedPlan.UpdateQuestionnaire(originalPlan.TotalQuestions, originalPlan.CompletedQuestions);
+            
+            // Note: Status and generation metadata are not copied as the duplicated plan starts fresh
+            // The duplicated plan will have Status = Draft by default
+
+            _context.BusinessPlans.Add(duplicatedPlan);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            // Copy questionnaire responses
+            foreach (var originalResponse in originalPlan.QuestionnaireResponses)
+            {
+                var newResponse = new Domain.Entities.BusinessPlan.QuestionnaireResponse(
+                    duplicatedPlan.Id,
+                    originalResponse.QuestionTemplateId,
+                    originalResponse.ResponseText);
+                
+                newResponse.SetNumericValue(originalResponse.NumericValue);
+                newResponse.SetBooleanValue(originalResponse.BooleanValue);
+                newResponse.SetDateValue(originalResponse.DateValue);
+                newResponse.SetSelectedOptions(originalResponse.SelectedOptions);
+                newResponse.SetAiInsights(originalResponse.AiInsights);
+                newResponse.CreatedBy = currentUserId.Value.ToString();
+                
+                _context.QuestionnaireResponses.Add(newResponse);
+            }
+
+            // Copy financial projections
+            foreach (var projection in originalPlan.FinancialProjectionDetails)
+            {
+                var newProjection = new Domain.Entities.BusinessPlan.FinancialProjection(
+                    duplicatedPlan.Id,
+                    projection.Year,
+                    projection.Month,
+                    projection.Quarter);
+                
+                if (projection.Revenue.HasValue)
+                {
+                    newProjection.SetRevenue(projection.Revenue.Value, projection.RevenueGrowthRate);
+                }
+                
+                newProjection.SetCosts(
+                    projection.CostOfGoodsSold,
+                    projection.OperatingExpenses,
+                    projection.MarketingExpenses,
+                    projection.RAndDExpenses,
+                    projection.AdministrativeExpenses,
+                    projection.OtherExpenses);
+                
+                if (projection.CashFlow.HasValue)
+                {
+                    newProjection.SetCashFlow(projection.CashFlow.Value, projection.CashBalance);
+                }
+                
+                newProjection.SetMetrics(projection.Employees, projection.Customers, projection.UnitsSold);
+                newProjection.SetNotes(projection.Notes, projection.Assumptions);
+                
+                _context.BusinessPlanFinancialProjections.Add(newProjection);
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation("Business plan {OriginalPlanId} duplicated to {NewPlanId} by user {UserId}", 
+                id, duplicatedPlan.Id, currentUserId.Value);
+
+            // Reload business plan with organization for response
+            var duplicatedPlanWithOrg = await _context.BusinessPlans
+                .Include(bp => bp.Organization)
+                .FirstOrDefaultAsync(bp => bp.Id == duplicatedPlan.Id, cancellationToken);
+
+            // Map to response
+            var businessPlanResponse = new BusinessPlanResponse
+            {
+                Id = duplicatedPlanWithOrg!.Id,
+                Title = duplicatedPlanWithOrg.Title,
+                Description = duplicatedPlanWithOrg.Description,
+                PlanType = duplicatedPlanWithOrg.PlanType.ToString(),
+                Status = duplicatedPlanWithOrg.Status.ToString(),
+                OrganizationId = duplicatedPlanWithOrg.OrganizationId,
+                OrganizationName = duplicatedPlanWithOrg.Organization.Name,
+                Version = duplicatedPlanWithOrg.Version,
+                TotalQuestions = duplicatedPlanWithOrg.TotalQuestions,
+                CompletedQuestions = duplicatedPlanWithOrg.CompletedQuestions,
+                CompletionPercentage = duplicatedPlanWithOrg.CompletionPercentage,
+                QuestionnaireCompletedAt = duplicatedPlanWithOrg.QuestionnaireCompletedAt,
+                GenerationStartedAt = duplicatedPlanWithOrg.GenerationStartedAt,
+                GenerationCompletedAt = duplicatedPlanWithOrg.GenerationCompletedAt,
+                FinalizedAt = duplicatedPlanWithOrg.FinalizedAt,
+                Created = duplicatedPlanWithOrg.Created,
+                LastModified = duplicatedPlanWithOrg.LastModified,
+                CreatedBy = duplicatedPlanWithOrg.CreatedBy ?? string.Empty
+            };
+
+            return Result.Success(businessPlanResponse);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error duplicating business plan {PlanId}", id);
+            return Result.Failure<BusinessPlanResponse>(Error.InternalServerError("General.InternalServerError", _localizationService.GetString("General.InternalServerError")));
+        }
+    }
 }
 

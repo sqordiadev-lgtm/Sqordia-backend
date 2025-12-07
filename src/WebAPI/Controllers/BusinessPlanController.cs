@@ -159,6 +159,43 @@ public class BusinessPlanController : BaseApiController
     }
 
     /// <summary>
+    /// Duplicate a business plan
+    /// </summary>
+    /// <param name="id">The business plan ID to duplicate</param>
+    /// <param name="request">Optional new title for the duplicated plan</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>The duplicated business plan</returns>
+    /// <remarks>
+    /// Creates a complete copy of a business plan including all sections, questionnaire responses, and financial projections.
+    /// The new plan will have "Copie de [original title]" as the default title unless a custom title is provided.
+    /// 
+    /// Sample request:
+    ///     POST /api/v1/business-plans/3fa85f64-5717-4562-b3fc-2c963f66afa6/duplicate
+    ///     {
+    ///         "newTitle": "My Business Plan - Copy"
+    ///     }
+    /// </remarks>
+    /// <response code="200">Business plan duplicated successfully</response>
+    /// <response code="400">Invalid request</response>
+    /// <response code="401">Unauthorized - authentication required</response>
+    /// <response code="403">Forbidden - user doesn't have access to the business plan</response>
+    /// <response code="404">Business plan not found</response>
+    [HttpPost("{id}/duplicate")]
+    [ProducesResponseType(typeof(BusinessPlanResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DuplicateBusinessPlan(
+        Guid id, 
+        [FromBody] DuplicateBusinessPlanRequest? request = null, 
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _businessPlanService.DuplicateBusinessPlanAsync(id, request?.NewTitle, cancellationToken);
+        return HandleResult(result);
+    }
+
+    /// <summary>
     /// Get all available business plan types with descriptions
     /// </summary>
     /// <returns>List of available business plan types</returns>

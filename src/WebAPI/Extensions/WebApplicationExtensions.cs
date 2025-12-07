@@ -2,6 +2,7 @@ using AspNetCoreRateLimit;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
+using Npgsql;
 using Sqordia.Persistence.Contexts;
 using WebAPI.Middleware;
 using System.Text.Json;
@@ -38,7 +39,7 @@ public static class WebApplicationExtensions
         }
         catch (SqlException sqlEx) when (sqlEx.Number == 18456 || sqlEx.Number == 4060)
         {
-            logger.LogWarning(sqlEx, "Database connection failed. This may be because the database doesn't exist yet. Attempting to create database...");
+            logger.LogWarning(sqlEx, "SQL Server database connection failed. This may be because the database doesn't exist yet. Attempting to create database...");
             
             try
             {
@@ -72,6 +73,14 @@ public static class WebApplicationExtensions
             {
                 logger.LogError(createEx, "Failed to create database. Application will continue without database connectivity.");
             }
+        }
+        catch (PostgresException pgEx) when (pgEx.SqlState == "3D000" || pgEx.SqlState == "28P01")
+        {
+            // PostgreSQL error codes:
+            // 3D000 = database does not exist
+            // 28P01 = authentication failed
+            logger.LogWarning(pgEx, "PostgreSQL database connection failed. Error: {Message}", pgEx.Message);
+            logger.LogInformation("For PostgreSQL, the database should be created manually or via migrations. Railway creates databases automatically.");
         }
         catch (Exception ex)
         {
