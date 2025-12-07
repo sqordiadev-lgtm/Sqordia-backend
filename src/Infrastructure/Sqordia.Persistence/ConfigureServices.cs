@@ -66,8 +66,8 @@ public static class ConfigureServices
         var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
         if (!string.IsNullOrEmpty(databaseUrl))
         {
-            var connectionString = ParseRailwayDatabaseUrl(databaseUrl);
-            return (connectionString, DatabaseProvider.PostgreSQL);
+            var railwayConnectionString = ParseRailwayDatabaseUrl(databaseUrl);
+            return (railwayConnectionString, DatabaseProvider.PostgreSQL);
         }
 
         // Get the connection string from configuration
