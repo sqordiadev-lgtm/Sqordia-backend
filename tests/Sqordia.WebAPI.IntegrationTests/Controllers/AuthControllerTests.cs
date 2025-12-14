@@ -336,7 +336,7 @@ public class AuthControllerTests
     }
 
     [Fact]
-    public async Task GetCurrentUser_WithInvalidUser_ShouldReturnBadRequest()
+    public async Task GetCurrentUser_WithInvalidUser_ShouldReturnNotFound()
     {
         // Arrange
         var userId = Guid.NewGuid();
@@ -363,9 +363,9 @@ public class AuthControllerTests
         var response = await _sut.GetCurrentUser();
 
         // Assert
-        response.Should().BeOfType<BadRequestObjectResult>();
-        var badRequestResult = response as BadRequestObjectResult;
-        badRequestResult!.Value.Should().Be(error);
+        response.Should().BeOfType<NotFoundObjectResult>();
+        var notFoundResult = response as NotFoundObjectResult;
+        notFoundResult!.Value.Should().Be(error);
     }
 
     [Fact]
