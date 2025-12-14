@@ -95,3 +95,11 @@ docs/FRONTEND_QUESTIONNAIRE_INTEGRATION.md
 20 questions plan stratégiques.docx.md
 scripts/SeedStrategicPlanQuestions.sql
 docs/ORGANIZATION_API_FORMAT.md
+
+# Terraform
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.backup
+**/.terraform.lock.hcl
+terraform.tfvars
+secrets.json
