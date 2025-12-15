@@ -71,11 +71,13 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build \
+          docker buildx create --use --name multiarch-builder || true
+          docker buildx build \
             --platform linux/amd64 \
-            -t ${{ env.IMAGE_NAME }}:${{ github.sha }} \
-            -t ${{ env.IMAGE_NAME }}:latest \
-            -f Dockerfile \
+            --tag ${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            --tag ${{ env.IMAGE_NAME }}:latest \
+            --file Dockerfile \
+            --push \
             .
 
       - name: Push Docker image
@@ -220,11 +222,13 @@ jobs:
           gcloud compute ssh ${{ steps.get-instance.outputs.instance_name }} \
             --zone=${{ steps.get-instance.outputs.zone }} \
             --command="
+              echo 'Running database migrations...'
               sudo docker exec sqordia-backend dotnet ef database update \
                 --project src/Infrastructure/Sqordia.Persistence \
                 --startup-project src/WebAPI \
                 --no-build \
                 --connection '${{ secrets.DB_CONNECTION_STRING }}' || echo 'Migrations completed or no changes'
+              echo 'Migrations completed'
             " \
             --quiet
 
