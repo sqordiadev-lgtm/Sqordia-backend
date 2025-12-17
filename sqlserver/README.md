@@ -50,10 +50,17 @@ Run scripts individually in order:
 
 ### Option 3: Using Docker Compose
 
-If using Docker Compose, you can execute the scripts via the SQL Server container:
+If using Docker Compose, copy the script into the container and execute:
 
 ```bash
-docker exec -i sqordia-sqlserver sqlcmd -S localhost -U sa -P "YourPassword" -d SqordiaDb -i /path/to/sqlserver/00_run_all_seeds.sql
+# Copy the combined seed script into the container
+docker cp sqlserver/combined_seed.sql sqordia-db-dev:/tmp/combined_seed.sql
+
+# Execute the script
+docker exec sqordia-db-dev sqlcmd -S localhost -U sa -P "SqordiaDev123!" -d SqordiaDb -i /tmp/combined_seed.sql
+
+# Or execute directly from host (if sqlcmd is available)
+sqlcmd -S localhost,1433 -U sa -P "SqordiaDev123!" -d SqordiaDb -i sqlserver/combined_seed.sql
 ```
 
 ## Default Credentials
