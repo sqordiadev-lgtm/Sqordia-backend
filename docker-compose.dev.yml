@@ -50,8 +50,6 @@ services:
       # Disable HTTPS redirect for Docker development
       - DISABLE_HTTPS_REDIRECT=true
     volumes:
-      # Mount appsettings for local development (includes SendGrid API key)
-      - ./src/WebAPI/appsettings.Development.json:/app/appsettings.Development.json:ro
       # Mount logs directory if needed
       - ./logs:/app/logs
     networks:
