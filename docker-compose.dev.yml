@@ -18,7 +18,7 @@ services:
       - ConnectionStrings__DefaultConnection=Server=sqordia-db,1433;Database=SqordiaDb;User Id=sa;Password=${SA_PASSWORD:-SqordiaDev123!};TrustServerCertificate=True;MultipleActiveResultSets=True;Connection Timeout=30;
       
       # JWT Settings
-      - JwtSettings__Secret=${JWT_SECRET:-S6075c41562a35879f7e40220d435f1f6972c7c7a9deea0c5}
+      - JwtSettings__Secret=${JWT_SECRET:}
       - JwtSettings__Issuer=${JWT_ISSUER:-Sqordia}
       - JwtSettings__Audience=${JWT_AUDIENCE:-SqordiaUsers}
       - JwtSettings__ExpirationMinutes=${JWT_EXPIRATION_MINUTES:-60}
@@ -28,10 +28,10 @@ services:
       - GoogleOAuth__ClientSecret=${GOOGLE_OAUTH_CLIENT_SECRET:-}
       
       # OpenAI Configuration
-      - OPENAI_API_KEY=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
-      - OpenAI__ApiKey=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
+      - OPENAI_API_KEY=secret
+      - OpenAI__ApiKey=secret
       - OpenAI__Model=${OPENAI_MODEL:-gpt-4}
-      - AI__OpenAI__ApiKey=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
+      - AI__OpenAI__ApiKey=secret
       - AI__OpenAI__Model=${OPENAI_MODEL:-gpt-4}
       
       # Alternative AI Providers (optional)
