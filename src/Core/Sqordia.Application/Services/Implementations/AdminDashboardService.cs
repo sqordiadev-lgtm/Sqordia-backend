@@ -56,21 +56,126 @@ public class AdminDashboardService : IAdminDashboardService
             // Financial projections
             var totalFinancialProjections = await _context.BusinessPlanFinancialProjections.CountAsync(cancellationToken);
 
-            // Popular features
-            var popularFeatures = new List<AdminFeatureUsage>
+            // Get real popular features from audit logs
+            var featureActions = new Dictionary<string, string>
             {
-                new() { FeatureName = "Business Plan Generation", UsageCount = totalBusinessPlans, UniqueUsers = activeUsers, LastUsed = now.AddHours(-1) },
-                new() { FeatureName = "Financial Projections", UsageCount = totalFinancialProjections, UniqueUsers = activeUsers / 2, LastUsed = now.AddHours(-2) },
-                new() { FeatureName = "Organization Management", UsageCount = totalOrganizations, UniqueUsers = activeUsers / 4, LastUsed = now.AddMinutes(-15) }
+                { "Business Plan Generation", "DATA_CREATED" },
+                { "Financial Projections", "DATA_CREATED" },
+                { "Organization Management", "DATA_CREATED" }
             };
 
-            // Recent activities
-            var recentActivities = new List<AdminRecentActivity>
+            var popularFeatures = new List<AdminFeatureUsage>();
+            
+            // Business Plan Generation
+            var businessPlanLogs = await _context.AuditLogs
+                .Where(log => log.EntityType == "BusinessPlan" && log.Success)
+                .ToListAsync(cancellationToken);
+            if (businessPlanLogs.Any())
             {
-                new() { Activity = "Business Plan Created", UserEmail = "user@example.com", Timestamp = now.AddMinutes(-5), EntityName = "Tech Startup Plan" },
-                new() { Activity = "Organization Created", UserEmail = "founder@startup.com", Timestamp = now.AddMinutes(-15), EntityName = "InnovateTech Solutions" },
-                new() { Activity = "User Registered", UserEmail = "newuser@example.com", Timestamp = now.AddMinutes(-25) }
-            };
+                var uniqueUsers = businessPlanLogs.Where(log => log.UserId.HasValue).Select(log => log.UserId!.Value).Distinct().Count();
+                popularFeatures.Add(new AdminFeatureUsage
+                {
+                    FeatureName = "Business Plan Generation",
+                    UsageCount = businessPlanLogs.Count,
+                    UniqueUsers = uniqueUsers,
+                    LastUsed = businessPlanLogs.Max(log => log.Timestamp)
+                });
+            }
+
+            // Financial Projections
+            var financialLogs = await _context.AuditLogs
+                .Where(log => log.EntityType == "FinancialProjection" && log.Success)
+                .ToListAsync(cancellationToken);
+            if (financialLogs.Any())
+            {
+                var uniqueUsers = financialLogs.Where(log => log.UserId.HasValue).Select(log => log.UserId!.Value).Distinct().Count();
+                popularFeatures.Add(new AdminFeatureUsage
+                {
+                    FeatureName = "Financial Projections",
+                    UsageCount = financialLogs.Count,
+                    UniqueUsers = uniqueUsers,
+                    LastUsed = financialLogs.Max(log => log.Timestamp)
+                });
+            }
+
+            // Organization Management
+            var orgLogs = await _context.AuditLogs
+                .Where(log => log.EntityType == "Organization" && log.Success)
+                .ToListAsync(cancellationToken);
+            if (orgLogs.Any())
+            {
+                var uniqueUsers = orgLogs.Where(log => log.UserId.HasValue).Select(log => log.UserId!.Value).Distinct().Count();
+                popularFeatures.Add(new AdminFeatureUsage
+                {
+                    FeatureName = "Organization Management",
+                    UsageCount = orgLogs.Count,
+                    UniqueUsers = uniqueUsers,
+                    LastUsed = orgLogs.Max(log => log.Timestamp)
+                });
+            }
+
+            // If no features found, add defaults
+            if (!popularFeatures.Any())
+            {
+                popularFeatures.Add(new AdminFeatureUsage
+                {
+                    FeatureName = "Business Plan Generation",
+                    UsageCount = totalBusinessPlans,
+                    UniqueUsers = activeUsers,
+                    LastUsed = now.AddHours(-1)
+                });
+            }
+
+            // Get real recent activities from audit logs
+            var recentAuditLogs = await _context.AuditLogs
+                .Where(log => log.Success && log.Timestamp >= now.AddDays(-7))
+                .OrderByDescending(log => log.Timestamp)
+                .Take(10)
+                .ToListAsync(cancellationToken);
+
+            // Get user emails for logs that have userIds
+            var userIds = recentAuditLogs.Where(log => log.UserId.HasValue).Select(log => log.UserId!.Value).Distinct().ToList();
+            var userEmails = userIds.Any() 
+                ? await _context.Users
+                    .Where(u => userIds.Contains(u.Id))
+                    .ToDictionaryAsync(u => u.Id, u => u.Email.Value, cancellationToken)
+                : new Dictionary<Guid, string>();
+
+            var recentActivities = recentAuditLogs.Select(log =>
+            {
+                var activityName = log.Action switch
+                {
+                    "DATA_CREATED" when log.EntityType == "BusinessPlan" => "Business Plan Created",
+                    "DATA_CREATED" when log.EntityType == "Organization" => "Organization Created",
+                    "REGISTER" or "ACCOUNT_CREATED" => "User Registered",
+                    "LOGIN" => "User Logged In",
+                    "DATA_UPDATED" when log.EntityType == "BusinessPlan" => "Business Plan Updated",
+                    _ => log.Action
+                };
+
+                var userEmail = log.UserId.HasValue && userEmails.TryGetValue(log.UserId.Value, out var email) 
+                    ? email 
+                    : "System";
+
+                return new AdminRecentActivity
+                {
+                    Activity = activityName,
+                    UserEmail = userEmail,
+                    Timestamp = log.Timestamp,
+                    EntityName = !string.IsNullOrEmpty(log.EntityId) ? log.EntityId : null
+                };
+            }).ToList();
+
+            // If no recent activities, add some defaults
+            if (!recentActivities.Any())
+            {
+                recentActivities.Add(new AdminRecentActivity
+                {
+                    Activity = "System Initialized",
+                    UserEmail = "System",
+                    Timestamp = now
+                });
+            }
 
             var overview = new AdminSystemOverview
             {
@@ -246,10 +351,23 @@ public class AdminDashboardService : IAdminDashboardService
             };
 
             var totalCount = await query.CountAsync(cancellationToken);
-            var organizations = await query
+            var organizationsData = await query
+                .Include(o => o.Members)
                 .Skip((request.Page - 1) * request.PageSize)
                 .Take(request.PageSize)
-                .Select(o => new AdminOrganizationInfo
+                .ToListAsync(cancellationToken);
+
+            // Get organization IDs for business plan counts
+            var organizationIds = organizationsData.Select(o => o.Id).ToList();
+            var businessPlanCounts = await _context.BusinessPlans
+                .Where(bp => organizationIds.Contains(bp.OrganizationId))
+                .GroupBy(bp => bp.OrganizationId)
+                .ToDictionaryAsync(g => g.Key, g => new { Total = g.Count(), Completed = g.Count(bp => bp.CompletionPercentage >= 100) }, cancellationToken);
+
+            var organizations = organizationsData.Select(o =>
+            {
+                var bpCounts = businessPlanCounts.TryGetValue(o.Id, out var counts) ? counts : new { Total = 0, Completed = 0 };
+                return new AdminOrganizationInfo
                 {
                     Id = o.Id,
                     Name = o.Name,
@@ -257,15 +375,15 @@ public class AdminDashboardService : IAdminDashboardService
                     OrganizationType = o.OrganizationType.ToString(),
                     IsActive = o.IsActive,
                     CreatedAt = o.Created,
-                    OwnerId = Guid.Empty, // Simplified - would need CreatedBy lookup
+                    OwnerId = Guid.Empty, // Would need to parse CreatedBy or find owner member
                     OwnerEmail = o.CreatedBy ?? "Unknown",
-                    OwnerName = "Unknown", // Simplified
-                    MemberCount = 0, // Simplified
-                    BusinessPlanCount = 0, // Simplified
-                    CompletedBusinessPlanCount = 0, // Simplified
+                    OwnerName = "Unknown",
+                    MemberCount = o.Members.Count(m => m.IsActive),
+                    BusinessPlanCount = bpCounts.Total,
+                    CompletedBusinessPlanCount = bpCounts.Completed,
                     LastActivityAt = o.LastModified
-                })
-                .ToListAsync(cancellationToken);
+                };
+            }).ToList();
 
             var paginatedResult = new PaginatedList<AdminOrganizationInfo>(organizations, totalCount, request.Page, request.PageSize);
             return Result.Success(paginatedResult);
@@ -379,8 +497,21 @@ public class AdminDashboardService : IAdminDashboardService
                 return Result.Failure("User not found.");
             }
 
-            // Log the admin action - actual implementation would need domain methods
-            _logger.LogInformation("Admin requested user {UserId} status change to {Status}", userId, status);
+            // Update user status based on the status enum
+            var isActive = status == UserStatus.Active;
+            if (user.IsActive != isActive)
+            {
+                if (isActive)
+                {
+                    user.Activate();
+                }
+                else
+                {
+                    user.Deactivate();
+                }
+                await _context.SaveChangesAsync(cancellationToken);
+                _logger.LogInformation("User {UserId} status updated to {Status}", userId, status);
+            }
 
             return Result.Success();
         }
@@ -403,8 +534,20 @@ public class AdminDashboardService : IAdminDashboardService
                 return Result.Failure("Organization not found.");
             }
 
-            // Log the admin action - actual implementation would need domain methods
-            _logger.LogInformation("Admin requested organization {OrganizationId} status change to {IsActive}", organizationId, isActive);
+            // Update organization status
+            if (organization.IsActive != isActive)
+            {
+                if (isActive)
+                {
+                    organization.Reactivate();
+                }
+                else
+                {
+                    organization.Deactivate();
+                }
+                await _context.SaveChangesAsync(cancellationToken);
+                _logger.LogInformation("Organization {OrganizationId} status updated to {IsActive}", organizationId, isActive);
+            }
 
             return Result.Success();
         }
@@ -453,25 +596,32 @@ public class AdminDashboardService : IAdminDashboardService
             query = query.OrderByDescending(log => log.Timestamp);
 
             var totalCount = await query.CountAsync(cancellationToken);
-            var auditLogs = await query
+            var auditLogsData = await query
                 .Skip((request.Page - 1) * request.PageSize)
                 .Take(request.PageSize)
-                .Select(log => new AdminActivityLog
-                {
-                    Id = log.Id,
-                    Timestamp = log.Timestamp,
-                    Action = log.Action,
-                    Entity = log.EntityType,
-                    EntityId = null, // Simplified - would need post-processing to parse
-                    UserId = log.UserId,
-                    UserEmail = "user@example.com", // Simplified
-                    IPAddress = log.IpAddress ?? "Unknown",
-                    UserAgent = log.UserAgent ?? "Unknown",
-                    IsSuccess = log.Success,
-                    ErrorMessage = log.ErrorMessage,
-                    Metadata = new Dictionary<string, object>()
-                })
                 .ToListAsync(cancellationToken);
+
+            // Get user emails for logs that have userIds
+            var userIds = auditLogsData.Where(log => log.UserId.HasValue).Select(log => log.UserId!.Value).Distinct().ToList();
+            var userEmails = await _context.Users
+                .Where(u => userIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => u.Email.Value, cancellationToken);
+
+            var auditLogs = auditLogsData.Select(log => new AdminActivityLog
+            {
+                Id = log.Id,
+                Timestamp = log.Timestamp,
+                Action = log.Action,
+                Entity = log.EntityType,
+                EntityId = null, // Simplified - would need post-processing to parse
+                UserId = log.UserId,
+                UserEmail = log.UserId.HasValue && userEmails.TryGetValue(log.UserId.Value, out var email) ? email : (log.UserId.HasValue ? "Unknown" : "System"),
+                IPAddress = log.IpAddress ?? "Unknown",
+                UserAgent = log.UserAgent ?? "Unknown",
+                IsSuccess = log.Success,
+                ErrorMessage = log.ErrorMessage,
+                Metadata = new Dictionary<string, object>()
+            }).ToList();
 
             var paginatedResult = new PaginatedList<AdminActivityLog>(auditLogs, totalCount, request.Page, request.PageSize);
             return Result.Success(paginatedResult);
@@ -491,22 +641,38 @@ public class AdminDashboardService : IAdminDashboardService
 
             var activeUsers = await _context.Users.CountAsync(u => u.IsActive, cancellationToken);
 
+            // Check database health
+            var dbHealthy = true;
+            var dbResponseTime = 45.2;
+            try
+            {
+                var startTime = DateTime.UtcNow;
+                await _context.Users.CountAsync(cancellationToken);
+                dbResponseTime = (DateTime.UtcNow - startTime).TotalMilliseconds;
+                dbHealthy = dbResponseTime < 1000; // Healthy if response time < 1 second
+            }
+            catch
+            {
+                dbHealthy = false;
+                dbResponseTime = 5000; // Indicate slow/unhealthy
+            }
+
             var systemHealth = new AdminSystemHealth
             {
                 CheckedAt = DateTime.UtcNow,
-                OverallStatus = "Healthy",
-                CpuUsage = 15.2,
-                MemoryUsage = 68.5,
-                DiskUsage = 42.8,
+                OverallStatus = dbHealthy ? "Healthy" : "Warning",
+                CpuUsage = 15.2, // Would need system metrics in production
+                MemoryUsage = 68.5, // Would need system metrics in production
+                DiskUsage = 42.8, // Would need system metrics in production
                 ActiveConnections = activeUsers / 10,
-                DatabaseResponseTime = 45.2,
-                APIResponseTime = 125.8,
-                DatabaseHealthy = true,
-                EmailServiceHealthy = true,
-                AIServiceHealthy = true,
+                DatabaseResponseTime = dbResponseTime,
+                APIResponseTime = 125.8, // Would need to track API response times
+                DatabaseHealthy = dbHealthy,
+                EmailServiceHealthy = true, // Would need to check email service
+                AIServiceHealthy = true, // Would need to check AI service
                 Alerts = new List<AdminHealthAlert>
                 {
-                    new() { Severity = "Info", Message = "System running normally", Timestamp = DateTime.UtcNow, Component = "Overall" }
+                    new() { Severity = dbHealthy ? "Info" : "Warning", Message = dbHealthy ? "System running normally" : "Database response time is high", Timestamp = DateTime.UtcNow, Component = "Database" }
                 }
             };
 

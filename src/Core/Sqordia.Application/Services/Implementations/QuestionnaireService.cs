@@ -50,10 +50,10 @@ public class QuestionnaireService : IQuestionnaireService
                 return Result.Failure<IEnumerable<QuestionnaireQuestionResponse>>(Error.Unauthorized("User.Unauthorized", "User is not authenticated."));
             }
 
-            // Get business plan
+            // Get business plan (excluding deleted ones)
             var businessPlan = await _context.BusinessPlans
                 .Include(bp => bp.Organization)
-                .FirstOrDefaultAsync(bp => bp.Id == businessPlanId, cancellationToken);
+                .FirstOrDefaultAsync(bp => bp.Id == businessPlanId && !bp.IsDeleted, cancellationToken);
 
             if (businessPlan == null)
             {
@@ -179,9 +179,9 @@ public class QuestionnaireService : IQuestionnaireService
                 return Result.Failure<QuestionnaireQuestionResponse>(Error.Unauthorized("User.Unauthorized", "User is not authenticated."));
             }
 
-            // Get business plan
+            // Get business plan (excluding deleted ones)
             var businessPlan = await _context.BusinessPlans
-                .FirstOrDefaultAsync(bp => bp.Id == businessPlanId, cancellationToken);
+                .FirstOrDefaultAsync(bp => bp.Id == businessPlanId && !bp.IsDeleted, cancellationToken);
 
             if (businessPlan == null)
             {
@@ -311,9 +311,9 @@ public class QuestionnaireService : IQuestionnaireService
                 return Result.Failure<IEnumerable<QuestionnaireQuestionResponse>>(Error.Unauthorized("User.Unauthorized", "User is not authenticated."));
             }
 
-            // Get business plan
+            // Get business plan (excluding deleted ones)
             var businessPlan = await _context.BusinessPlans
-                .FirstOrDefaultAsync(bp => bp.Id == businessPlanId, cancellationToken);
+                .FirstOrDefaultAsync(bp => bp.Id == businessPlanId && !bp.IsDeleted, cancellationToken);
 
             if (businessPlan == null)
             {
@@ -406,7 +406,7 @@ public class QuestionnaireService : IQuestionnaireService
     private async Task UpdateCompletionInternalAsync(Guid businessPlanId, CancellationToken cancellationToken)
     {
         var businessPlan = await _context.BusinessPlans
-            .FirstOrDefaultAsync(bp => bp.Id == businessPlanId, cancellationToken);
+            .FirstOrDefaultAsync(bp => bp.Id == businessPlanId && !bp.IsDeleted, cancellationToken);
 
         if (businessPlan == null) return;
 

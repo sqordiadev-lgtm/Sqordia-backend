@@ -117,12 +117,22 @@ public class OrganizationService : IOrganizationService
                 return Result.Failure<IEnumerable<OrganizationResponse>>(Error.Unauthorized("General.Unauthorized", _localizationService.GetString("General.Unauthorized")));
             }
 
-            var organizations = await _context.OrganizationMembers
+            // First get the organization IDs the user is a member of
+            var organizationIds = await _context.OrganizationMembers
                 .Where(om => om.UserId == userId.Value && om.IsActive)
-                .Include(om => om.Organization)
-                    .ThenInclude(o => o.Members)
-                .Select(om => om.Organization)
-                .Where(o => !o.IsDeleted)
+                .Select(om => om.OrganizationId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            if (!organizationIds.Any())
+            {
+                return Result.Success(Enumerable.Empty<OrganizationResponse>());
+            }
+
+            // Then get the organizations with their members
+            var organizations = await _context.Organizations
+                .Where(o => organizationIds.Contains(o.Id) && !o.IsDeleted)
+                .Include(o => o.Members.Where(m => m.IsActive))
                 .ToListAsync(cancellationToken);
 
             var responses = organizations.Select(MapToOrganizationResponse);

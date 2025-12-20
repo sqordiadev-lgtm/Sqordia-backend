@@ -85,10 +85,12 @@ public class BusinessPlanShareController : BaseApiController
 
     /// <summary>
     /// Get a business plan by public token (no authentication required)
+    /// Note: businessPlanId parameter is required by route but ignored - lookup is by token only
     /// </summary>
     [HttpGet("public/{token}")]
     [AllowAnonymous]
     public async Task<IActionResult> GetBusinessPlanByPublicToken(
+        Guid businessPlanId, // Required by route but not used - lookup is by token
         string token,
         CancellationToken cancellationToken = default)
     {

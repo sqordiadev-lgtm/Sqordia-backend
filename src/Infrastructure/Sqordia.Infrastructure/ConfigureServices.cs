@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using SendGrid;
 using Sqordia.Application.Common.Interfaces;
 using Sqordia.Application.Common.Security;
@@ -60,7 +61,48 @@ public static class ConfigureServices
         services.AddSingleton<ILocalizationService, LocalizationService>();
 
         // AI service - Required for business plan generation
-        services.Configure<OpenAISettings>(configuration.GetSection("OpenAI"));
+        // Configure from both appsettings and environment variables
+        // Priority: Environment variables > appsettings.json
+        services.Configure<OpenAISettings>(configuration.GetSection("AI:OpenAI"));
+        
+        // Post-configure to allow environment variables to override appsettings
+        // This runs AFTER the initial Configure, so env vars will override
+        services.PostConfigure<OpenAISettings>(options =>
+        {
+            // Try environment variables first (highest priority)
+            var envApiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY")
+                          ?? Environment.GetEnvironmentVariable("OpenAI__ApiKey")
+                          ?? Environment.GetEnvironmentVariable("AI__OpenAI__ApiKey");
+            
+            // Then try configuration (appsettings.json)
+            var configApiKey = configuration["AI:OpenAI:ApiKey"]
+                            ?? configuration["OpenAI:ApiKey"];
+            
+            // Use first non-empty value found
+            var apiKey = envApiKey ?? configApiKey;
+            
+            // Use first non-empty value found
+            if (!string.IsNullOrEmpty(apiKey) && apiKey != "TODO: Add OpenAI API key" && !apiKey.Contains("TODO"))
+            {
+                options.ApiKey = apiKey;
+            }
+            
+            // Same for model
+            var envModel = Environment.GetEnvironmentVariable("OPENAI_MODEL")
+                        ?? Environment.GetEnvironmentVariable("OpenAI__Model")
+                        ?? Environment.GetEnvironmentVariable("AI__OpenAI__Model");
+            
+            var configModel = configuration["AI:OpenAI:Model"]
+                           ?? configuration["OpenAI:Model"];
+            
+            var model = envModel ?? configModel;
+            
+            if (!string.IsNullOrEmpty(model))
+            {
+                options.Model = model;
+            }
+        });
+        
         services.AddSingleton<IAIService, OpenAIService>();
 
         // Document export service - Required for PDF/Word export
@@ -71,6 +113,9 @@ public static class ConfigureServices
 
         // Admin dashboard service - Required for admin management and analytics
         services.AddTransient<IAdminDashboardService, AdminDashboardService>();
+        
+        // Subscription service
+        services.AddScoped<Sqordia.Application.Services.ISubscriptionService, SubscriptionService>();
 
         return services;
     }

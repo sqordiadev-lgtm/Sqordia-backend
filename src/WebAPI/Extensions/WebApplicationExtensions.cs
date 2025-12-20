@@ -37,41 +37,53 @@ public static class WebApplicationExtensions
             
             logger.LogInformation("Database migrations completed successfully.");
         }
-        catch (SqlException sqlEx) when (sqlEx.Number == 18456 || sqlEx.Number == 4060)
+        catch (SqlException sqlEx) when (sqlEx.Number == 18456 || sqlEx.Number == 4060 || sqlEx.Number == 40925)
         {
-            logger.LogWarning(sqlEx, "SQL Server database connection failed. This may be because the database doesn't exist yet. Attempting to create database...");
-            
-            try
+            if (sqlEx.Number == 40925)
             {
-                var connectionString = configuration.GetConnectionString("DefaultConnection");
-                if (!string.IsNullOrEmpty(connectionString))
-                {
-                    var builder = new SqlConnectionStringBuilder(connectionString);
-                    var databaseName = builder.InitialCatalog;
-                    builder.InitialCatalog = "master";
-                    
-                    using var masterConnection = new SqlConnection(builder.ConnectionString);
-                    await masterConnection.OpenAsync();
-                    
-                    var createDbCommand = masterConnection.CreateCommand();
-                    createDbCommand.CommandText = $@"
-                        IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '{databaseName}')
-                        BEGIN
-                            CREATE DATABASE [{databaseName}];
-                        END";
-                    await createDbCommand.ExecuteNonQueryAsync();
-                    
-                    logger.LogInformation("Database created successfully. Applying migrations...");
-                    
-                    var db = services.GetRequiredService<ApplicationDbContext>();
-                    await db.Database.MigrateAsync();
-                    
-                    logger.LogInformation("Database migrations completed successfully.");
-                }
+                logger.LogError(sqlEx, "Azure SQL Database connection failed. Error 40925 typically indicates authentication or network issues.");
+                logger.LogWarning("Please check:");
+                logger.LogWarning("1. DB_USERNAME and DB_PASSWORD environment variables are set correctly");
+                logger.LogWarning("2. Azure SQL firewall allows connections from this IP address");
+                logger.LogWarning("3. The database server is accessible from the container");
+                logger.LogWarning("Application will continue without database connectivity. Some features may not work.");
             }
-            catch (Exception createEx)
+            else
             {
-                logger.LogError(createEx, "Failed to create database. Application will continue without database connectivity.");
+                logger.LogWarning(sqlEx, "SQL Server database connection failed. This may be because the database doesn't exist yet. Attempting to create database...");
+                
+                try
+                {
+                    var connectionString = configuration.GetConnectionString("DefaultConnection");
+                    if (!string.IsNullOrEmpty(connectionString))
+                    {
+                        var builder = new SqlConnectionStringBuilder(connectionString);
+                        var databaseName = builder.InitialCatalog;
+                        builder.InitialCatalog = "master";
+                        
+                        using var masterConnection = new SqlConnection(builder.ConnectionString);
+                        await masterConnection.OpenAsync();
+                        
+                        var createDbCommand = masterConnection.CreateCommand();
+                        createDbCommand.CommandText = $@"
+                            IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '{databaseName}')
+                            BEGIN
+                                CREATE DATABASE [{databaseName}];
+                            END";
+                        await createDbCommand.ExecuteNonQueryAsync();
+                        
+                        logger.LogInformation("Database created successfully. Applying migrations...");
+                        
+                        var db = services.GetRequiredService<ApplicationDbContext>();
+                        await db.Database.MigrateAsync();
+                        
+                        logger.LogInformation("Database migrations completed successfully.");
+                    }
+                }
+                catch (Exception createEx)
+                {
+                    logger.LogError(createEx, "Failed to create database. Application will continue without database connectivity.");
+                }
             }
         }
         catch (PostgresException pgEx) when (pgEx.SqlState == "3D000" || pgEx.SqlState == "28P01")

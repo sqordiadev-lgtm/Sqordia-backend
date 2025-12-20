@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Sqordia.Application.Common.Interfaces;
 using Sqordia.Application.Common.Models;
+using Sqordia.Contracts.Enums;
 using Sqordia.Contracts.Requests.BusinessPlan;
 using Sqordia.Contracts.Responses.BusinessPlan;
 using Sqordia.Domain.Entities.BusinessPlan;
@@ -73,42 +74,77 @@ public class BusinessPlanShareService : IBusinessPlanShareService
                 return Result.Failure<BusinessPlanShareResponse>(Error.Forbidden("BusinessPlan.Error.Forbidden", _localizationService.GetString("BusinessPlan.Error.Forbidden")));
             }
 
-            // Verify shared user exists
-            var sharedUser = await _context.Users
-                .FirstOrDefaultAsync(u => u.Id == request.SharedWithUserId, cancellationToken);
-
-            if (sharedUser == null)
+            // Validate that either SharedWithUserId or Email is provided
+            if (!request.SharedWithUserId.HasValue && string.IsNullOrWhiteSpace(request.Email))
             {
-                return Result.Failure<BusinessPlanShareResponse>(Error.NotFound("User.Error.NotFound", _localizationService.GetString("User.Error.NotFound")));
+                return Result.Failure<BusinessPlanShareResponse>(Error.Validation("Share.InvalidRequest", "Either SharedWithUserId or Email must be provided"));
             }
 
-            // Map permission from int to enum
-            if (!Enum.IsDefined(typeof(SharePermission), request.Permission))
-            {
-                return Result.Failure<BusinessPlanShareResponse>(Error.Validation("Share.InvalidPermission", "Invalid permission value"));
-            }
-            var permission = (SharePermission)request.Permission;
+            var permission = (Domain.Enums.SharePermission)request.Permission;
 
-            // Check if share already exists
+            Domain.Entities.Identity.User? sharedUser = null;
+            Guid? sharedWithUserId = null;
+            string? sharedWithEmail = null;
+
+            // Handle email-based sharing
+            if (!string.IsNullOrWhiteSpace(request.Email))
+            {
+                sharedWithEmail = request.Email.Trim().ToLowerInvariant();
+                
+                // Try to find user by email
+                sharedUser = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Email.Value.ToLower() == sharedWithEmail, cancellationToken);
+                
+                if (sharedUser != null)
+                {
+                    sharedWithUserId = sharedUser.Id;
+                }
+            }
+            else if (request.SharedWithUserId.HasValue)
+            {
+                // Handle user ID-based sharing
+                sharedUser = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Id == request.SharedWithUserId.Value, cancellationToken);
+
+                if (sharedUser == null)
+                {
+                    return Result.Failure<BusinessPlanShareResponse>(Error.NotFound("User.Error.NotFound", _localizationService.GetString("User.Error.NotFound")));
+                }
+
+                sharedWithUserId = sharedUser.Id;
+                sharedWithEmail = sharedUser.Email.Value;
+            }
+
+            // Check if share already exists (by user ID or email)
             var existingShare = await _context.BusinessPlanShares
                 .FirstOrDefaultAsync(bs => bs.BusinessPlanId == businessPlanId && 
-                                          bs.SharedWithUserId == request.SharedWithUserId && 
-                                          bs.IsActive, cancellationToken);
+                                          bs.IsActive && 
+                                          ((sharedWithUserId.HasValue && bs.SharedWithUserId == sharedWithUserId) ||
+                                           (!string.IsNullOrEmpty(sharedWithEmail) && bs.SharedWithEmail != null && bs.SharedWithEmail.ToLower() == sharedWithEmail)), 
+                                          cancellationToken);
 
             if (existingShare != null)
             {
                 // Update existing share
                 existingShare.UpdatePermission(permission);
+                
+                // Update user ID if we found a user by email
+                if (sharedWithUserId.HasValue && !existingShare.SharedWithUserId.HasValue)
+                {
+                    // This would require a method to update the user ID, but for now we'll just update permission
+                    // The share will be linked to the user when they accept the invitation
+                }
+                
                 await _context.SaveChangesAsync(cancellationToken);
 
                 var response = new BusinessPlanShareResponse
                 {
                     Id = existingShare.Id,
                     BusinessPlanId = existingShare.BusinessPlanId,
-                    SharedWithUserId = existingShare.SharedWithUserId,
-                    SharedWithEmail = existingShare.SharedWithEmail,
-                    SharedWithUserName = $"{sharedUser.FirstName} {sharedUser.LastName}",
-                    Permission = (int)existingShare.Permission,
+                    SharedWithUserId = existingShare.SharedWithUserId ?? sharedWithUserId,
+                    SharedWithEmail = existingShare.SharedWithEmail ?? sharedWithEmail,
+                    SharedWithUserName = sharedUser != null ? $"{sharedUser.FirstName} {sharedUser.LastName}" : null,
+                    Permission = (Sqordia.Contracts.Enums.SharePermission)existingShare.Permission,
                     PermissionName = existingShare.Permission.ToString(),
                     IsPublic = existingShare.IsPublic,
                     PublicToken = existingShare.PublicToken,
@@ -127,16 +163,16 @@ public class BusinessPlanShareService : IBusinessPlanShareService
             var share = new BusinessPlanShare(
                 businessPlanId,
                 permission,
-                request.SharedWithUserId,
-                sharedUser.Email.Value,
+                sharedWithUserId,
+                sharedWithEmail,
                 false,
                 request.ExpiresAt);
             share.CreatedBy = currentUserId.Value.ToString();
             _context.BusinessPlanShares.Add(share);
             await _context.SaveChangesAsync(cancellationToken);
 
-            _logger.LogInformation("Business plan {PlanId} shared with user {UserId} by {OwnerId}", 
-                businessPlanId, request.SharedWithUserId, currentUserId.Value);
+            _logger.LogInformation("Business plan {PlanId} shared with {Identifier} by {OwnerId}", 
+                businessPlanId, sharedWithUserId?.ToString() ?? sharedWithEmail ?? "unknown", currentUserId.Value);
 
             var shareResponse = new BusinessPlanShareResponse
             {
@@ -144,8 +180,8 @@ public class BusinessPlanShareService : IBusinessPlanShareService
                 BusinessPlanId = share.BusinessPlanId,
                 SharedWithUserId = share.SharedWithUserId,
                 SharedWithEmail = share.SharedWithEmail,
-                SharedWithUserName = $"{sharedUser.FirstName} {sharedUser.LastName}",
-                Permission = (int)share.Permission,
+                SharedWithUserName = sharedUser != null ? $"{sharedUser.FirstName} {sharedUser.LastName}" : null,
+                Permission = (Sqordia.Contracts.Enums.SharePermission)share.Permission,
                 PermissionName = share.Permission.ToString(),
                 IsPublic = share.IsPublic,
                 PublicToken = share.PublicToken,
@@ -211,7 +247,7 @@ public class BusinessPlanShareService : IBusinessPlanShareService
                 {
                     Id = existingShare.Id,
                     BusinessPlanId = existingShare.BusinessPlanId,
-                    Permission = (int)existingShare.Permission,
+                    Permission = (Sqordia.Contracts.Enums.SharePermission)existingShare.Permission,
                     PermissionName = existingShare.Permission.ToString(),
                     IsPublic = existingShare.IsPublic,
                     PublicToken = existingShare.PublicToken,
@@ -225,12 +261,7 @@ public class BusinessPlanShareService : IBusinessPlanShareService
                 return Result.Success(response);
             }
 
-            // Map permission from int to enum
-            if (!Enum.IsDefined(typeof(SharePermission), request.Permission))
-            {
-                return Result.Failure<BusinessPlanShareResponse>(Error.Validation("Share.InvalidPermission", "Invalid permission value"));
-            }
-            var permission = (SharePermission)request.Permission;
+            var permission = (Domain.Enums.SharePermission)request.Permission;
 
             // Create new public share
             var share = new BusinessPlanShare(
@@ -251,7 +282,7 @@ public class BusinessPlanShareService : IBusinessPlanShareService
             {
                 Id = share.Id,
                 BusinessPlanId = share.BusinessPlanId,
-                Permission = (int)share.Permission,
+                Permission = (Sqordia.Contracts.Enums.SharePermission)share.Permission,
                 PermissionName = share.Permission.ToString(),
                 IsPublic = share.IsPublic,
                 PublicToken = share.PublicToken,
@@ -315,7 +346,7 @@ public class BusinessPlanShareService : IBusinessPlanShareService
                 SharedWithUserId = share.SharedWithUserId,
                 SharedWithEmail = share.SharedWithEmail,
                 SharedWithUserName = share.SharedWithUser != null ? $"{share.SharedWithUser.FirstName} {share.SharedWithUser.LastName}" : null,
-                Permission = (int)share.Permission,
+                Permission = (Sqordia.Contracts.Enums.SharePermission)share.Permission,
                 PermissionName = share.Permission.ToString(),
                 IsPublic = share.IsPublic,
                 PublicToken = share.PublicToken,
@@ -470,13 +501,7 @@ public class BusinessPlanShareService : IBusinessPlanShareService
                 return Result.Failure(Error.Forbidden("BusinessPlan.Error.Forbidden", _localizationService.GetString("BusinessPlan.Error.Forbidden")));
             }
 
-            // Map permission from int to enum
-            if (!Enum.IsDefined(typeof(SharePermission), request.Permission))
-            {
-                return Result.Failure(Error.Validation("Share.InvalidPermission", "Invalid permission value"));
-            }
-            var permission = (SharePermission)request.Permission;
-            share.UpdatePermission(permission);
+            share.UpdatePermission((Domain.Enums.SharePermission)request.Permission);
             await _context.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation("Share {ShareId} permission updated for business plan {PlanId} by {UserId}", 

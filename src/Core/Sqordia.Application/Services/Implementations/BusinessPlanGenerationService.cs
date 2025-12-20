@@ -38,23 +38,60 @@ public class BusinessPlanGenerationService : IBusinessPlanGenerationService
                 .Include(bp => bp.Organization)
                 .Include(bp => bp.QuestionnaireResponses)
                     .ThenInclude(qr => qr.QuestionTemplate)
-                .FirstOrDefaultAsync(bp => bp.Id == businessPlanId, cancellationToken);
+                .FirstOrDefaultAsync(bp => bp.Id == businessPlanId && !bp.IsDeleted, cancellationToken);
 
             if (businessPlan == null)
             {
-                return Result.Failure<BusinessPlan>($"Business plan with ID {businessPlanId} not found.");
+                return Result.Failure<BusinessPlan>(Error.NotFound("BusinessPlan.Error.NotFound", $"Business plan with ID {businessPlanId} not found."));
             }
 
             // Check if questionnaire is complete
-            if (businessPlan.Status != BusinessPlanStatus.QuestionnaireComplete &&
-                businessPlan.Status != BusinessPlanStatus.Draft)
+            // StartGeneration requires QuestionnaireComplete status, but we allow Draft if questionnaire is actually complete
+            if (businessPlan.Status == BusinessPlanStatus.Draft)
             {
-                return Result.Failure<BusinessPlan>("Business plan questionnaire must be completed before generation.");
+                // Check if all required questions are actually answered
+                var template = await _context.QuestionnaireTemplates
+                    .Include(qt => qt.Questions)
+                    .Where(qt => qt.PlanType == businessPlan.PlanType && qt.IsActive)
+                    .OrderByDescending(qt => qt.Version)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (template != null)
+                {
+                    var requiredQuestions = template.Questions.Where(q => q.IsRequired).Select(q => q.Id).ToList();
+                    var answeredRequiredQuestions = await _context.QuestionnaireResponses
+                        .Where(qr => qr.BusinessPlanId == businessPlanId && requiredQuestions.Contains(qr.QuestionTemplateId))
+                        .CountAsync(cancellationToken);
+
+                    // If all required questions are answered, mark as complete
+                    if (answeredRequiredQuestions == requiredQuestions.Count && requiredQuestions.Count > 0)
+                    {
+                        businessPlan.MarkQuestionnaireComplete();
+                        await _context.SaveChangesAsync(cancellationToken);
+                    }
+                    else
+                    {
+                        return Result.Failure<BusinessPlan>(Error.Validation("BusinessPlan.QuestionnaireIncomplete", "Business plan questionnaire must be completed before generation. Please complete all required questions."));
+                    }
+                }
+            }
+            else if (businessPlan.Status != BusinessPlanStatus.QuestionnaireComplete && 
+                     businessPlan.Status != BusinessPlanStatus.Generating)
+            {
+                return Result.Failure<BusinessPlan>(Error.Validation("BusinessPlan.InvalidStatus", $"Business plan must be in Draft or QuestionnaireComplete status to generate. Current status: {businessPlan.Status}"));
             }
 
-            // Mark as generating
-            businessPlan.StartGeneration("AI");
-            await _context.SaveChangesAsync(cancellationToken);
+            // Mark as generating (this will throw if status is not QuestionnaireComplete, so we ensure it is above)
+            if (businessPlan.Status == BusinessPlanStatus.Generating)
+            {
+                // Already generating, allow retry
+                _logger.LogInformation("Business plan {PlanId} is already generating, continuing...", businessPlanId);
+            }
+            else
+            {
+                businessPlan.StartGeneration("AI");
+                await _context.SaveChangesAsync(cancellationToken);
+            }
 
             // Get questionnaire context
             var context = BuildQuestionnaireContext(businessPlan.QuestionnaireResponses);
@@ -111,7 +148,7 @@ public class BusinessPlanGenerationService : IBusinessPlanGenerationService
             var businessPlan = await _context.BusinessPlans
                 .Include(bp => bp.QuestionnaireResponses)
                     .ThenInclude(qr => qr.QuestionTemplate)
-                .FirstOrDefaultAsync(bp => bp.Id == businessPlanId, cancellationToken);
+                .FirstOrDefaultAsync(bp => bp.Id == businessPlanId && !bp.IsDeleted, cancellationToken);
 
             if (businessPlan == null)
             {

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Sqordia.Application.Common.Interfaces;
 using Sqordia.Application.Services;
 using Sqordia.Contracts.Requests.BusinessPlan;
@@ -15,11 +16,16 @@ public class QuestionnaireController : BaseApiController
 {
     private readonly IQuestionnaireService _questionnaireService;
     private readonly IAIService _aiService;
+    private readonly ILogger<QuestionnaireController> _logger;
 
-    public QuestionnaireController(IQuestionnaireService questionnaireService, IAIService aiService)
+    public QuestionnaireController(
+        IQuestionnaireService questionnaireService, 
+        IAIService aiService,
+        ILogger<QuestionnaireController> logger)
     {
         _questionnaireService = questionnaireService;
         _aiService = aiService;
+        _logger = logger;
     }
 
     /// <summary>
@@ -144,6 +150,39 @@ public class QuestionnaireController : BaseApiController
     {
         try
         {
+            _logger.LogInformation("SuggestAnswer called for plan {PlanId}, question {QuestionId}. Request: {@Request}", 
+                businessPlanId, questionId, request);
+
+            // Validate model state
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState
+                    .Where(x => x.Value?.Errors.Count > 0)
+                    .SelectMany(x => x.Value!.Errors.Select(e => $"{x.Key}: {e.ErrorMessage}"))
+                    .ToList();
+                _logger.LogWarning("Model validation failed for SuggestAnswer: {Errors}", string.Join(", ", errors));
+                return BadRequest(new { error = "Invalid request", details = errors });
+            }
+
+            // Validate required fields manually as additional check
+            if (string.IsNullOrWhiteSpace(request.QuestionText))
+            {
+                _logger.LogWarning("QuestionText is null or empty");
+                return BadRequest(new { error = "QuestionText is required" });
+            }
+
+            if (request.QuestionText.Length < 10)
+            {
+                _logger.LogWarning("QuestionText is too short: {Length}", request.QuestionText.Length);
+                return BadRequest(new { error = "QuestionText must be at least 10 characters long" });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.PlanType))
+            {
+                _logger.LogWarning("PlanType is null or empty");
+                return BadRequest(new { error = "PlanType is required" });
+            }
+
             // Validate that the business plan exists and user has access
             var businessPlanResult = await _questionnaireService.GetQuestionnaireAsync(businessPlanId, cancellationToken);
             if (!businessPlanResult.IsSuccess)
@@ -151,10 +190,22 @@ public class QuestionnaireController : BaseApiController
                 return HandleResult(businessPlanResult);
             }
 
+            // Get business plan to extract plan type if not provided
+            if (string.IsNullOrWhiteSpace(request.PlanType))
+            {
+                // Try to get plan type from business plan
+                // This is a fallback - frontend should provide it
+                request.PlanType = "StrategicPlan"; // Default for OBNL
+            }
+
             // Check if AI service is available
+            _logger.LogInformation("Checking AI service availability. Service type: {ServiceType}", _aiService?.GetType().Name ?? "NULL");
             var isAvailable = await _aiService.IsAvailableAsync(cancellationToken);
+            _logger.LogInformation("AI service availability check result: {IsAvailable}", isAvailable);
             if (!isAvailable)
             {
+                _logger.LogWarning("AI service unavailable when trying to generate suggestions for plan {PlanId}, question {QuestionId}. Service type: {ServiceType}", 
+                    businessPlanId, questionId, _aiService?.GetType().Name ?? "NULL");
                 return BadRequest(new { error = "AI service is currently unavailable. Please try again later." });
             }
 
@@ -165,7 +216,9 @@ public class QuestionnaireController : BaseApiController
         }
         catch (Exception ex)
         {
-            return BadRequest(new { error = ex.Message });
+            _logger.LogError(ex, "Error generating AI suggestions for plan {PlanId}, question {QuestionId}", 
+                businessPlanId, questionId);
+            return BadRequest(new { error = ex.Message, details = ex.InnerException?.Message });
         }
     }
 

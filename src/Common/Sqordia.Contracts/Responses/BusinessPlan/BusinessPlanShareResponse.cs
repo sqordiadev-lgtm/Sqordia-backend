@@ -1,3 +1,5 @@
+using Sqordia.Contracts.Enums;
+
 namespace Sqordia.Contracts.Responses.BusinessPlan;
 
 public class BusinessPlanShareResponse
@@ -7,7 +9,7 @@ public class BusinessPlanShareResponse
     public Guid? SharedWithUserId { get; set; }
     public string? SharedWithEmail { get; set; }
     public string? SharedWithUserName { get; set; }
-    public int Permission { get; set; } // 0 = ReadOnly, 1 = Edit, 2 = FullAccess
+    public SharePermission Permission { get; set; }
     public string PermissionName { get; set; } = string.Empty; // "ReadOnly", "Edit", "FullAccess"
     public bool IsPublic { get; set; }
     public string? PublicToken { get; set; }

@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Sqordia.Application.Common.Interfaces;
 using Sqordia.Application.Common.Models;
 using Sqordia.Application.Templates.Queries;
@@ -20,6 +21,33 @@ public class CreateTemplateCommandHandler : IRequestHandler<CreateTemplateComman
 
     public async Task<Result<TemplateDto>> Handle(CreateTemplateCommand request, CancellationToken cancellationToken)
     {
+        // Verify user exists and is active (admin users bypass email verification)
+        if (!string.IsNullOrEmpty(_currentUserService.UserId) && Guid.TryParse(_currentUserService.UserId, out var userId))
+        {
+            var user = await _context.Users
+                .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+                .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+            
+            if (user == null)
+            {
+                return Result.Failure<TemplateDto>(Error.NotFound("User.NotFound", "User not found"));
+            }
+            
+            // Check if user is active
+            if (!user.IsActive)
+            {
+                return Result.Failure<TemplateDto>(Error.Unauthorized("Auth.Error.AccountDisabled", "Your account is disabled. Please contact support."));
+            }
+            
+            // For non-admin users, check email verification
+            var isAdmin = user.UserRoles.Any(ur => ur.Role.Name == "Admin");
+            if (!isAdmin && !user.IsEmailConfirmed)
+            {
+                return Result.Failure<TemplateDto>(Error.Unauthorized("Auth.Error.EmailNotVerified", "Please verify your email address before continuing."));
+            }
+        }
+        
         var template = new Template
         {
             Name = request.Name,
@@ -77,6 +105,6 @@ public class CreateTemplateCommandHandler : IRequestHandler<CreateTemplateComman
             UpdatedAt = template.UpdatedAt
         };
 
-        return Result<TemplateDto>.Success(dto);
+        return Result.Success(dto);
     }
 }

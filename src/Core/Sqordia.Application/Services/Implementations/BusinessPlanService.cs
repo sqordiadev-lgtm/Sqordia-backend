@@ -134,7 +134,7 @@ public class BusinessPlanService : IBusinessPlanService
 
             var businessPlan = await _context.BusinessPlans
                 .Include(bp => bp.Organization)
-                .FirstOrDefaultAsync(bp => bp.Id == id, cancellationToken);
+                .FirstOrDefaultAsync(bp => bp.Id == id && !bp.IsDeleted, cancellationToken);
 
             if (businessPlan == null)
             {
@@ -206,7 +206,7 @@ public class BusinessPlanService : IBusinessPlanService
 
             var businessPlans = await _context.BusinessPlans
                 .Include(bp => bp.Organization)
-                .Where(bp => bp.OrganizationId == organizationId)
+                .Where(bp => bp.OrganizationId == organizationId && !bp.IsDeleted)
                 .OrderByDescending(bp => bp.Created)
                 .ToListAsync(cancellationToken);
 
@@ -253,7 +253,7 @@ public class BusinessPlanService : IBusinessPlanService
 
             var businessPlan = await _context.BusinessPlans
                 .Include(bp => bp.Organization)
-                .FirstOrDefaultAsync(bp => bp.Id == id, cancellationToken);
+                .FirstOrDefaultAsync(bp => bp.Id == id && !bp.IsDeleted, cancellationToken);
 
             if (businessPlan == null)
             {
@@ -337,7 +337,7 @@ public class BusinessPlanService : IBusinessPlanService
             }
 
             var businessPlan = await _context.BusinessPlans
-                .FirstOrDefaultAsync(bp => bp.Id == id, cancellationToken);
+                .FirstOrDefaultAsync(bp => bp.Id == id && !bp.IsDeleted, cancellationToken);
 
             if (businessPlan == null)
             {
@@ -360,10 +360,15 @@ public class BusinessPlanService : IBusinessPlanService
                 return Result.Failure(Error.Forbidden("BusinessPlan.Error.Forbidden", _localizationService.GetString("BusinessPlan.Error.Forbidden")));
             }
 
-            _context.BusinessPlans.Remove(businessPlan);
+            // Use soft delete
+            businessPlan.SoftDelete();
+            businessPlan.DeletedBy = currentUserId.Value.ToString();
+            businessPlan.LastModified = DateTime.UtcNow;
+            businessPlan.LastModifiedBy = currentUserId.Value.ToString();
+            
             await _context.SaveChangesAsync(cancellationToken);
 
-            _logger.LogInformation("Business plan {PlanId} deleted by user {UserId}", id, currentUserId.Value);
+            _logger.LogInformation("Business plan {PlanId} soft deleted by user {UserId}", id, currentUserId.Value);
 
             return Result.Success();
         }
@@ -386,7 +391,7 @@ public class BusinessPlanService : IBusinessPlanService
 
             var businessPlan = await _context.BusinessPlans
                 .Include(bp => bp.Organization)
-                .FirstOrDefaultAsync(bp => bp.Id == id, cancellationToken);
+                .FirstOrDefaultAsync(bp => bp.Id == id && !bp.IsDeleted, cancellationToken);
 
             if (businessPlan == null)
             {
@@ -457,7 +462,7 @@ public class BusinessPlanService : IBusinessPlanService
 
             var businessPlan = await _context.BusinessPlans
                 .Include(bp => bp.Organization)
-                .FirstOrDefaultAsync(bp => bp.Id == id, cancellationToken);
+                .FirstOrDefaultAsync(bp => bp.Id == id && !bp.IsDeleted, cancellationToken);
 
             if (businessPlan == null)
             {
@@ -537,10 +542,10 @@ public class BusinessPlanService : IBusinessPlanService
                 return Result.Success<IEnumerable<BusinessPlanResponse>>(new List<BusinessPlanResponse>());
             }
 
-            // Get all business plans for these organizations
+            // Get all business plans for these organizations (excluding deleted ones)
             var businessPlans = await _context.BusinessPlans
                 .Include(bp => bp.Organization)
-                .Where(bp => userOrganizations.Contains(bp.OrganizationId))
+                .Where(bp => userOrganizations.Contains(bp.OrganizationId) && !bp.IsDeleted)
                 .OrderByDescending(bp => bp.Created)
                 .ToListAsync(cancellationToken);
 
@@ -586,13 +591,13 @@ public class BusinessPlanService : IBusinessPlanService
                 return Result.Failure<BusinessPlanResponse>(Error.Unauthorized("General.Unauthorized", _localizationService.GetString("General.Unauthorized")));
             }
 
-            // Get the original business plan with all related data
+            // Get the original business plan with all related data (excluding deleted plans)
             var originalPlan = await _context.BusinessPlans
                 .Include(bp => bp.Organization)
                 .Include(bp => bp.QuestionnaireResponses)
                     .ThenInclude(qr => qr.QuestionTemplate)
                 .Include(bp => bp.FinancialProjectionDetails)
-                .FirstOrDefaultAsync(bp => bp.Id == id, cancellationToken);
+                .FirstOrDefaultAsync(bp => bp.Id == id && !bp.IsDeleted, cancellationToken);
 
             if (originalPlan == null)
             {

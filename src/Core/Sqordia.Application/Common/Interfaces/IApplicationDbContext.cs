@@ -72,6 +72,10 @@ public interface IApplicationDbContext
     
     // Audit logging
     DbSet<AuditLog> AuditLogs { get; }
+    
+    // Subscription Management
+    DbSet<SubscriptionPlan> SubscriptionPlans { get; }
+    DbSet<Subscription> Subscriptions { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default);

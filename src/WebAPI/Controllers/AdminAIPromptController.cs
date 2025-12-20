@@ -248,6 +248,31 @@ public class AdminAIPromptController : BaseApiController
     }
 
     /// <summary>
+    /// Update prompt status (PUT endpoint for frontend compatibility)
+    /// </summary>
+    /// <param name="promptId">The prompt ID</param>
+    /// <param name="request">Status update request</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Success status</returns>
+    [HttpPut("{promptId}/status")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UpdatePromptStatus(
+        string promptId,
+        [FromBody] UpdatePromptStatusRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var isActive = request.Status?.ToLower() == "active" || request.Status?.ToLower() == "enabled";
+        var success = await _aiPromptService.TogglePromptStatusAsync(promptId, isActive, cancellationToken);
+        if (!success)
+            return NotFound();
+
+        return Ok(new { message = $"Prompt {(isActive ? "activated" : "deactivated")} successfully" });
+    }
+
+    /// <summary>
     /// Create a new version of an existing prompt
     /// </summary>
     /// <param name="parentPromptId">The parent prompt ID</param>
@@ -292,4 +317,12 @@ public class AdminAIPromptController : BaseApiController
         var versions = await _aiPromptService.GetPromptVersionsAsync(parentPromptId, cancellationToken);
         return Ok(versions);
     }
+}
+
+/// <summary>
+/// Request model for updating prompt status
+/// </summary>
+public class UpdatePromptStatusRequest
+{
+    public string? Status { get; set; }
 }

@@ -14,7 +14,7 @@ BEGIN
         [FirstName], 
         [LastName], 
         [PasswordHash], 
-        [IsEmailVerified], 
+        [IsEmailConfirmed], 
         [UserType], 
         [IsActive],
         [Created], 
@@ -30,7 +30,7 @@ BEGIN
         'Admin',
         'User',
         '$2a$11$rQZ8K9mN2pL3sT4uV5wX6yA7bC8dE9fG0hI1jK2lM3nO4pP5qR6sS7tT8uU9vV0wW1xX2yY3zZ4', -- Password: Sqordia2025!
-        1, -- IsEmailVerified
+        1, -- IsEmailConfirmed
         'Admin',
         1, -- IsActive
         GETUTCDATE(),
@@ -43,7 +43,15 @@ BEGIN
 END
 ELSE
 BEGIN
-    PRINT 'Admin user already exists';
+    -- Update admin user to ensure email is verified and account is active
+    UPDATE [Users]
+    SET 
+        [IsEmailConfirmed] = 1,
+        [IsActive] = 1,
+        [LastModified] = GETUTCDATE(),
+        [LastModifiedBy] = 'system'
+    WHERE [Id] = '00000000-0000-0000-0000-000000000000';
+    PRINT 'Updated admin user to ensure email is verified and account is active';
 END
 
 -- Assign Admin role to admin user

@@ -107,12 +107,20 @@ public static class ConfigureServices
 
     private static DatabaseProvider DetectDatabaseProvider(string connectionString)
     {
-        // Detect based on connection string format
+        // Check for SQL Server-specific keywords first (more specific)
+        if (connectionString.Contains("Initial Catalog=", StringComparison.OrdinalIgnoreCase) ||
+            connectionString.Contains("MultipleActiveResultSets=", StringComparison.OrdinalIgnoreCase) ||
+            connectionString.Contains("TrustServerCertificate=", StringComparison.OrdinalIgnoreCase) ||
+            (connectionString.Contains("Server=", StringComparison.OrdinalIgnoreCase) && 
+             connectionString.Contains("User Id=", StringComparison.OrdinalIgnoreCase)))
+        {
+            return DatabaseProvider.SqlServer;
+        }
+
+        // Check for PostgreSQL-specific keywords
         if (connectionString.Contains("postgresql://", StringComparison.OrdinalIgnoreCase) ||
             connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase) ||
-            connectionString.Contains("Server=", StringComparison.OrdinalIgnoreCase) && 
-            (connectionString.Contains("Database=", StringComparison.OrdinalIgnoreCase) && 
-             !connectionString.Contains("Initial Catalog=", StringComparison.OrdinalIgnoreCase)))
+            connectionString.Contains("Username=", StringComparison.OrdinalIgnoreCase))
         {
             return DatabaseProvider.PostgreSQL;
         }

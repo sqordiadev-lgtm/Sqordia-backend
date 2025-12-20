@@ -18,6 +18,11 @@ public enum OrganizationType
     /// <summary>
     /// Consulting or mentoring firm
     /// </summary>
-    ConsultingFirm = 2
+    ConsultingFirm = 2,
+    
+    /// <summary>
+    /// Company (legacy value, maps to Startup)
+    /// </summary>
+    Company = 3
 }
 

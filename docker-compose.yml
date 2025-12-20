@@ -1,6 +1,28 @@
 version: '3.8'
 
 services:
+  # SQL Server Database for local development
+  sqordia-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqordia-db-dev
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=SqordiaDev123!
+      - MSSQL_PID=Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqordia-db-data:/var/opt/mssql
+    networks:
+      - sqordia-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P SqordiaDev123! -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+
   sqordia-webapi:
     build:
       context: .
@@ -13,7 +35,7 @@ services:
       - ASPNETCORE_URLS=http://+:80;https://+:443
       - ASPNETCORE_Kestrel__Certificates__Default__Password=password
       - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/aspnetapp.pfx
-      - ConnectionStrings__DefaultConnection=Server=tcp:sqordia-server.database.windows.net,1433;Initial Catalog=Sqordia-db;Persist Security Info=False;User ID=${DB_USERNAME:-sqordia-dev};Password=${DB_PASSWORD:-};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;
+      - ConnectionStrings__DefaultConnection=Server=sqordia-db,1433;Database=SqordiaDb;User Id=sa;Password=SqordiaDev123!;TrustServerCertificate=True;Connection Timeout=30;MultipleActiveResultSets=True;
       - JwtSettings__Secret=${JWT_SECRET:-}
       - JwtSettings__Issuer=Sqordia
       - JwtSettings__Audience=SqordiaUsers
@@ -25,8 +47,15 @@ services:
       - SendGrid__FromName=Sqordia
     volumes:
       - ~/.aspnet/https:/https:ro
+    depends_on:
+      sqordia-db:
+        condition: service_healthy
     networks:
       - sqordia-network
+
+volumes:
+  sqordia-db-data:
+    driver: local
 
 networks:
   sqordia-network:

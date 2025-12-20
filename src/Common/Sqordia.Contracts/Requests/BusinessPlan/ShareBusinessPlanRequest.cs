@@ -1,15 +1,17 @@
 using System.ComponentModel.DataAnnotations;
+using Sqordia.Contracts.Enums;
 
 namespace Sqordia.Contracts.Requests.BusinessPlan;
 
 public class ShareBusinessPlanRequest
 {
-    [Required]
-    public required Guid SharedWithUserId { get; set; }
+    public Guid? SharedWithUserId { get; set; }
+    
+    [EmailAddress(ErrorMessage = "Invalid email address")]
+    public string? Email { get; set; }
     
     [Required]
-    [Range(0, 2, ErrorMessage = "Permission must be 0 (ReadOnly), 1 (Edit), or 2 (FullAccess)")]
-    public required int Permission { get; set; } // 0 = ReadOnly, 1 = Edit, 2 = FullAccess
+    public required SharePermission Permission { get; set; }
     
     public DateTime? ExpiresAt { get; set; }
 }

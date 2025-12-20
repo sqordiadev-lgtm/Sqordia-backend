@@ -2,7 +2,7 @@
 -- Creates default subscription plans (Free, Pro, Enterprise)
 -- Idempotent: Safe to run multiple times
 
-IF NOT EXISTS (SELECT 1 FROM [SubscriptionPlans] WHERE [PlanType] = 0) -- Free
+IF NOT EXISTS (SELECT 1 FROM [SubscriptionPlans] WHERE [PlanType] = 'Free')
 BEGIN
     INSERT INTO [SubscriptionPlans] (
         [Id],
@@ -25,12 +25,12 @@ BEGIN
     )
     VALUES (
         NEWID(),
-        0, -- Free
+        'Free', -- PlanType enum as string
         'Free Plan',
         'Basic plan with limited features',
         0.00,
-        'USD',
-        0, -- Monthly
+        'CAD',
+        'Monthly', -- BillingCycle enum as string
         1,
         3,
         1,
@@ -47,7 +47,7 @@ END
 ELSE
     PRINT 'Free subscription plan already exists';
 
-IF NOT EXISTS (SELECT 1 FROM [SubscriptionPlans] WHERE [PlanType] = 1) -- Pro
+IF NOT EXISTS (SELECT 1 FROM [SubscriptionPlans] WHERE [PlanType] = 'Pro')
 BEGIN
     INSERT INTO [SubscriptionPlans] (
         [Id],
@@ -70,12 +70,12 @@ BEGIN
     )
     VALUES (
         NEWID(),
-        1, -- Pro
+        'Pro', -- PlanType enum as string
         'Pro Plan',
         'Professional plan with advanced features',
         29.99,
-        'USD',
-        0, -- Monthly
+        'CAD',
+        'Monthly', -- BillingCycle enum as string
         10,
         50,
         50,
@@ -92,7 +92,7 @@ END
 ELSE
     PRINT 'Pro subscription plan already exists';
 
-IF NOT EXISTS (SELECT 1 FROM [SubscriptionPlans] WHERE [PlanType] = 2) -- Enterprise
+IF NOT EXISTS (SELECT 1 FROM [SubscriptionPlans] WHERE [PlanType] = 'Enterprise')
 BEGIN
     INSERT INTO [SubscriptionPlans] (
         [Id],
@@ -115,12 +115,12 @@ BEGIN
     )
     VALUES (
         NEWID(),
-        2, -- Enterprise
+        'Enterprise', -- PlanType enum as string
         'Enterprise Plan',
         'Enterprise plan with unlimited features and dedicated support',
         99.99,
-        'USD',
-        0, -- Monthly
+        'CAD',
+        'Monthly', -- BillingCycle enum as string
         999999, -- Unlimited
         999999, -- Unlimited
         500,
@@ -137,6 +137,4 @@ END
 ELSE
     PRINT 'Enterprise subscription plan already exists';
 
-PRINT 'Subscription plans seeded successfully';
 GO
-

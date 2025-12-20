@@ -155,6 +155,7 @@ public class AdminUserInfo
     public string Email { get; set; } = string.Empty;
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
+    public string Name => $"{FirstName} {LastName}".Trim();
     public string UserName { get; set; } = string.Empty;
     public string UserType { get; set; } = string.Empty;
     public UserStatus Status { get; set; }
@@ -169,6 +170,7 @@ public class AdminUserInfo
     public decimal EstimatedAICost { get; set; }
     public string? LastActiveIP { get; set; }
     public string? LastActiveLocation { get; set; }
+    public bool IsActive => Status == UserStatus.Active;
 }
 
 /// <summary>

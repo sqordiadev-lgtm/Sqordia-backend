@@ -74,6 +74,10 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     
     // Audit logging
     public DbSet<AuditLog> AuditLogs { get; set; }
+    
+    // Subscription Management
+    public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
+    public DbSet<Subscription> Subscriptions { get; set; }
 
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
     {

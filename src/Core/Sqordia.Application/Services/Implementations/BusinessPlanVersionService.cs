@@ -54,7 +54,7 @@ public class BusinessPlanVersionService : IBusinessPlanVersionService
             }
 
             var businessPlan = await _context.BusinessPlans
-                .FirstOrDefaultAsync(bp => bp.Id == businessPlanId, cancellationToken);
+                .FirstOrDefaultAsync(bp => bp.Id == businessPlanId && !bp.IsDeleted, cancellationToken);
 
             if (businessPlan == null)
             {
@@ -129,7 +129,7 @@ public class BusinessPlanVersionService : IBusinessPlanVersionService
             }
 
             var businessPlan = await _context.BusinessPlans
-                .FirstOrDefaultAsync(bp => bp.Id == businessPlanId, cancellationToken);
+                .FirstOrDefaultAsync(bp => bp.Id == businessPlanId && !bp.IsDeleted, cancellationToken);
 
             if (businessPlan == null)
             {
@@ -192,7 +192,7 @@ public class BusinessPlanVersionService : IBusinessPlanVersionService
             }
 
             var businessPlan = await _context.BusinessPlans
-                .FirstOrDefaultAsync(bp => bp.Id == businessPlanId, cancellationToken);
+                .FirstOrDefaultAsync(bp => bp.Id == businessPlanId && !bp.IsDeleted, cancellationToken);
 
             if (businessPlan == null)
             {
@@ -259,7 +259,7 @@ public class BusinessPlanVersionService : IBusinessPlanVersionService
 
             var businessPlan = await _context.BusinessPlans
                 .Include(bp => bp.Organization)
-                .FirstOrDefaultAsync(bp => bp.Id == businessPlanId, cancellationToken);
+                .FirstOrDefaultAsync(bp => bp.Id == businessPlanId && !bp.IsDeleted, cancellationToken);
 
             if (businessPlan == null)
             {

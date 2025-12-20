@@ -20,10 +20,23 @@ public class TemplateController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<Result<TemplateDto>>> CreateTemplate(CreateTemplateCommand command)
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+    public async Task<ActionResult<Result<TemplateDto>>> CreateTemplate([FromBody] CreateTemplateCommand command)
     {
         var result = await _templateService.CreateTemplateAsync(command);
         return result.IsSuccess ? CreatedAtAction(nameof(GetTemplate), new { id = result.Value!.Id }, result) : BadRequest(result);
+    }
+
+    /// <summary>
+    /// Get all templates (admin only - returns all templates including drafts)
+    /// </summary>
+    [HttpGet]
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+    public async Task<ActionResult<Result<List<TemplateDto>>>> GetAllTemplates()
+    {
+        // For admin, use search with empty string to get all templates
+        var result = await _templateService.SearchTemplatesAsync("");
+        return result.IsSuccess ? Ok(result) : BadRequest(result);
     }
 
     [HttpGet("{id}")]
